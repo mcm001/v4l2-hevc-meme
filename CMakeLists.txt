@@ -43,23 +43,39 @@ file(
 set(OPENCV_INCLUDE_PATH ${opencv_header_SOURCE_DIR})
 message("Depending on opencv ${OPENCV_LIB_PATH}")
 
-
 # Check if libraries are found
 if(V4L2_LIBRARY AND V4L1_LIBRARY)
     message(STATUS "Found V4L2: ${V4L2_LIBRARY}")
     message(STATUS "Found V4L1: ${V4L1_LIBRARY}")
     set(V4L2_LIBRARIES ${V4L2_LIBRARY} ${V4L1_LIBRARY})
 else()
-    message(FATAL_ERROR "V4L2 or V4L1 library not found. Please install libv4l-dev.")
+    message(
+        FATAL_ERROR
+        "V4L2 or V4L1 library not found. Please install libv4l-dev."
+    )
 endif()
 
 find_package(OpenCL REQUIRED)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET libavformat libavcodec libavutil)
+pkg_check_modules(
+    LIBAV
+    REQUIRED
+    IMPORTED_TARGET
+    libavformat
+    libavcodec
+    libavutil
+)
 
 add_executable(hevc_meme main.cpp FfmpegRtpPipe.cpp)
 
 target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH})
-target_link_libraries(hevc_meme PUBLIC
-    ${V4L2_LIBRARIES} OpenCL::OpenCL yuv ${OPENCV_LIB_PATH} PkgConfig::LIBAV)
+target_link_libraries(
+    hevc_meme
+    PUBLIC
+        ${V4L2_LIBRARIES}
+        OpenCL::OpenCL
+        yuv
+        ${OPENCV_LIB_PATH}
+        PkgConfig::LIBAV
+)

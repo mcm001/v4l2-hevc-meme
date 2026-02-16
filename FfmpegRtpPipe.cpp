@@ -166,6 +166,7 @@ void FfmpegRtpPipeline::write_packet(AVPacket *pkt) {
   // Convert this packet's PTS (in 90 kHz ticks) to a wall-clock deadline
   // and sleep until we reach it. This prevents the RTP sender from blasting
   // all packets instantly and overflowing the receiver's jitter buffer.
+  // TODO (Matt) why does this help so much?
   {
     // pts ticks → microseconds: pts * 1_000_000 / 90_000
     const int64_t pts_us = pkt->pts * 1'000'000LL / 90'000LL;

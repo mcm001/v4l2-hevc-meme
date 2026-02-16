@@ -25,6 +25,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
+#include <set>
 #include <signal.h>
 #include <span>
 #include <stdexcept>
@@ -138,15 +139,24 @@ static void xioctl(int fd, unsigned long req, void *arg, const char *label) {
 // stride = bytesperline as returned by the driver after VIDIOC_S_FMT.
 // ─────────────────────────────────────────────────────────────────────────────
 
-static void bgr_to_nv12(const cv::Mat &bgr, uint8_t *dst, int stride) {
+static void bgr_to_nv12(const cv::Mat &bgr, uint8_t *dst, int stride,
+                        int aligned_height) {
   const int w = bgr.cols;
   const int h = bgr.rows;
 
-  cv::Mat bgra;
-  cv::cvtColor(bgr, bgra, cv::COLOR_BGR2BGRA);
+  static std::vector<uint8_t> i420;
+  i420.resize(w * h * 3 / 2);
+  uint8_t *y = i420.data();
+  uint8_t *u = y + w * h;
+  uint8_t *v = u + (w / 2) * (h / 2);
 
-  libyuv::ARGBToNV12(bgra.data, static_cast<int>(bgra.step[0]), dst, stride,
-                     dst + stride * h, stride, w, h);
+  libyuv::RGB24ToI420(bgr.data, static_cast<int>(bgr.step[0]), y, w, u, w / 2,
+                      v, w / 2, w, h);
+
+  libyuv::I420ToNV12(y, w, u, w / 2, v, w / 2, dst, stride, // Y plane
+                     dst + stride * aligned_height,
+                     stride, // UV plane — aligned offset
+                     w, h);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,13 +211,15 @@ int main(int argc, char *argv[]) {
   // }
 
   const std::string INPUT_VIDEO = "Img_3733.mp4";
-  // const std::string OUTPUT_FILE = argv[1];
-  const int N_FRAMES = 2000;
-  const int N_LOAD = 20;
+  const std::string OUTPUT_FILE = "output.h265";
+  const int N_FRAMES = 3000;
+  const int N_LOAD = 300;
 
   // signal handler
   signal(SIGINT, stop_main);
   signal(SIGTERM, stop_main);
+
+  namespace fs = std::filesystem;
 
   try {
     // ── 1. Open video source
@@ -215,14 +227,27 @@ int main(int argc, char *argv[]) {
 
     std::cout << cv::getBuildInformation() << std::endl;
     std::vector<cv::Mat> frames;
-    for (auto const &dir_entry :
-         std::filesystem::directory_iterator{"frames"}) {
+    std::set<fs::path> sorted_by_name;
+
+    for (auto &entry : fs::directory_iterator("frames"))
+      sorted_by_name.insert(entry.path());
+
+    for (const auto &path : sorted_by_name) {
       if (!run || frames.size() >= N_LOAD)
         break;
 
-      frames.push_back(cv::imread(dir_entry.path()));
+      printf("loading %s...\n", path.c_str());
+      auto f = cv::imread(path, cv::IMREAD_COLOR);
+      if (!f.empty()) {
+        frames.push_back(f);
+        printf("loaded %lu (%lux%lu)\n", frames.size(), f.cols, f.rows);
+      }
     }
     printf("loaded %lu frames\n", frames.size());
+
+    if (frames.empty()) {
+      throw std::runtime_error("No frames");
+    }
 
     // Peek at the first frame to get dimensions before configuring the encoder.
     const int width = frames[0].cols;
@@ -264,6 +289,12 @@ int main(int argc, char *argv[]) {
         static_cast<int>(fmt_out.fmt.pix_mp.plane_fmt[0].bytesperline);
     const uint32_t out_buf_size = fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage;
     assert(stride >= width);
+    // sizeimage = stride * aligned_height * 3/2
+    // So aligned_height = sizeimage / stride / 3 * 2
+    const int aligned_height = (out_buf_size / stride) * 2 / 3;
+
+    std::cout << "height=" << height << " aligned_height=" << aligned_height
+              << " stride=" << stride << "\n";
     std::cout << "OUTPUT  stride=" << stride << "  sizeimage=" << out_buf_size
               << "\n";
     std::cout << "CAPTURE sizeimage=" << cap_buf_size << "\n\n";
@@ -278,7 +309,7 @@ int main(int argc, char *argv[]) {
     };
 
     set_ctrl(V4L2_CID_MPEG_VIDEO_BITRATE_MODE, 1, "bitrate_mode CBR");
-    set_ctrl(V4L2_CID_MPEG_VIDEO_BITRATE, 4'000'000, "bitrate 4Mbps");
+    set_ctrl(V4L2_CID_MPEG_VIDEO_BITRATE, 1'000'000, "bitrate target");
     set_ctrl(V4L2_CID_MPEG_VIDEO_GOP_SIZE, 30, "gop_size");
     set_ctrl(0x00990b84 /* prepend_sps_pps */, 1, "prepend_sps_pps_to_idr");
     set_ctrl(0x00992003 /* lowlatency_mode */, 1, "lowlatency_mode");
@@ -318,9 +349,9 @@ int main(int argc, char *argv[]) {
     // ───────────────────────────────────────────────────
 
     FfmpegRtpPipeline rtpOutput{width, height, "rtp://10.0.0.4:18888"};
-    // std::ofstream outfile(OUTPUT_FILE, std::ios::binary);
-    // if (!outfile)
-    //   throw std::runtime_error("Cannot open " + OUTPUT_FILE);
+    std::ofstream outfile(OUTPUT_FILE, std::ios::binary);
+    if (!outfile)
+      throw std::runtime_error("Cannot open " + OUTPUT_FILE);
 
     // ── 9. Main pipeline loop
     // ─────────────────────────────────────────────────
@@ -336,7 +367,7 @@ int main(int argc, char *argv[]) {
       auto t_conv = Clock::now();
       auto frame = frames[frame_idx % frames.size()];
       bgr_to_nv12(frame, static_cast<uint8_t *>(out_bufs[out_buf_idx].ptr),
-                  stride);
+                  stride, aligned_height);
       const double conv_ms = ms_since(t_conv);
 
       // ── b. Queue NV12 frame to encoder
@@ -347,7 +378,7 @@ int main(int argc, char *argv[]) {
       qbuf.index = out_buf_idx;
       qbuf.m.planes = &qplane;
       qbuf.length = 1;
-      qplane.bytesused = out_buf_size;
+      qplane.bytesused = static_cast<uint32_t>(stride * aligned_height * 3 / 2);
       qplane.length = static_cast<uint32_t>(out_bufs[out_buf_idx].length);
       qbuf.timestamp.tv_sec = static_cast<long>(frame_idx / 30);
       qbuf.timestamp.tv_usec =
@@ -376,6 +407,7 @@ int main(int argc, char *argv[]) {
           static_cast<const uint8_t *>(cap_bufs[dqbuf.index].ptr),
           static_cast<std::streamsize>(nal_size)};
       rtpOutput.handle_frame(hevc_nal);
+      outfile.write((const char *)hevc_nal.data(), hevc_nal.size());
       total_bytes += nal_size;
 
       // ── e. Requeue capture buf; reclaim output buf

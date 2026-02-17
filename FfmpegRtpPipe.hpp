@@ -17,6 +17,7 @@ extern "C" {
 #include <span>
 #include <string>
 #include <vector>
+#include <opencv2/core.hpp>
 
 class FfmpegRtpPipeline {
 private:
@@ -24,23 +25,23 @@ private:
   std::string url_;
   AVFormatContext *oc_ = nullptr;
   AVStream *st_ = nullptr;
-  AVBSFContext *bsf_ = nullptr;
-  AVPacket *bsf_pkt_ = nullptr;
+  
+  AVCodecContext *enc_ctx_ = nullptr;  // Hardware encoder context
+  AVFrame *enc_frame_ = nullptr;       // Frame buffer for BGR24 input
+  AVPacket *enc_pkt_ = nullptr;        // Packet buffer for encoded output
+  
   bool header_written_ = false;
   int next_pts_ = 3000; // start at frame 1
   int frame_duration_ = 90000 / 30;
-
   using Clock = std::chrono::steady_clock;
   std::chrono::time_point<Clock> stream_start_wall_;
-
+  
 public:
   FfmpegRtpPipeline(int width, int height, const char *url);
   ~FfmpegRtpPipeline();
-
   FfmpegRtpPipeline(const FfmpegRtpPipeline &) = delete;
   FfmpegRtpPipeline &operator=(const FfmpegRtpPipeline &) = delete;
-
   void write_packet(AVPacket *pkt);
-  void init_muxer(AVCodecParameters *par_out);
-  void handle_frame(std::span<const uint8_t> annexb_nal);
+  void init_muxer(AVCodecContext *enc_ctx);
+  void handle_frame(const cv::Mat& frame);
 };

@@ -7,106 +7,143 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
-#include <span>
 #include <stdexcept>
 #include <string>
 #include <thread>
 
-static std::string averr(int ret) {
+static std::string averr(int ret)
+{
   char buf[AV_ERROR_MAX_STRING_SIZE] = {};
   av_strerror(ret, buf, sizeof(buf));
   return {buf};
 }
 
 FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
-    : width_(width), height_(height), url_(url) {
+    : width_(width), height_(height), url_(url)
+{
 
-  // ── 1. Set up the extract_extradata BSF ──────────────────────────────────
-  // This BSF scans Annex-B HEVC packets, pulls out VPS/SPS/PPS into
-  // codecpar->extradata, and passes the full packet through unmodified.
-  // We use it to bootstrap the muxer before writing the header.
-  const AVBitStreamFilter *bsf_def = av_bsf_get_by_name("extract_extradata");
-  if (!bsf_def)
-    throw std::runtime_error("extract_extradata BSF not found in libavcodec");
+  const int BITRATE = 4'000'000; // bps
 
-  if (av_bsf_alloc(bsf_def, &bsf_) < 0)
-    throw std::runtime_error("av_bsf_alloc failed");
+  // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
+  const AVCodec *codec = avcodec_find_encoder_by_name("hevc_rkmpp");
+  if (!codec)
+    throw std::runtime_error("hevc_rkmpp encoder not found");
 
-  // Tell the BSF what codec it is processing
-  bsf_->par_in->codec_id = AV_CODEC_ID_HEVC;
-  bsf_->par_in->codec_type = AVMEDIA_TYPE_VIDEO;
-  bsf_->par_in->width = width_;
-  bsf_->par_in->height = height_;
-  bsf_->time_base_in = {1, 90000};
+  enc_ctx_ = avcodec_alloc_context3(codec);
+  if (!enc_ctx_)
+    throw std::runtime_error("avcodec_alloc_context3 failed");
 
-  if (av_bsf_init(bsf_) < 0)
-    throw std::runtime_error("av_bsf_init failed");
+  // ── 2. Configure encoder parameters ──────────────────────────────────────
+  enc_ctx_->width = width_;
+  enc_ctx_->height = height_;
+  enc_ctx_->time_base = {1, 90000};
+  enc_ctx_->framerate = {30, 1};        // 30 FPS
+  enc_ctx_->pix_fmt = AV_PIX_FMT_BGR24; // hevc_rkmpp supports BGR24 directly
+  enc_ctx_->bit_rate = BITRATE;
+  enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
 
-  // Allocate a reusable packet for BSF I/O
-  bsf_pkt_ = av_packet_alloc();
-  if (!bsf_pkt_)
-    throw std::runtime_error("av_packet_alloc (bsf) failed");
+  // ── 3. Open the encoder ───────────────────────────────────────────────────
+  int ret = avcodec_open2(enc_ctx_, codec, nullptr);
+  if (ret < 0)
+    throw std::runtime_error("avcodec_open2: " + averr(ret));
+
+  // ── 4. Allocate frame for encoder input ──────────────────────────────────
+  enc_frame_ = av_frame_alloc();
+  if (!enc_frame_)
+    throw std::runtime_error("av_frame_alloc failed");
+
+  enc_frame_->format = enc_ctx_->pix_fmt;
+  enc_frame_->width = width_;
+  enc_frame_->height = height_;
+
+  ret = av_frame_get_buffer(enc_frame_, 0);
+  if (ret < 0)
+    throw std::runtime_error("av_frame_get_buffer: " + averr(ret));
+
+  // ── 5. Allocate packet for encoder output ────────────────────────────────
+  enc_pkt_ = av_packet_alloc();
+  if (!enc_pkt_)
+    throw std::runtime_error("av_packet_alloc (encoder) failed");
 }
 
-void FfmpegRtpPipeline::handle_frame(std::span<const uint8_t> annexb_nal) {
-  AVPacket *pkt = av_packet_alloc();
-  if (!pkt)
-    throw std::runtime_error("av_packet_alloc failed");
+void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image)
+{
+  if (bgr_image.cols != width_ || bgr_image.rows != height_)
+    throw std::runtime_error("Image dimensions do not match pipeline configuration");
 
-  pkt->buf = nullptr;
-  pkt->data = const_cast<uint8_t *>(annexb_nal.data());
-  pkt->size = static_cast<int>(annexb_nal.size());
-  pkt->stream_index = 0; // must be set BEFORE BSF or it drops timestamps
+  if (bgr_image.type() != CV_8UC3)
+    throw std::runtime_error("Image must be CV_8UC3 (BGR)");
 
-  if (!header_written_) {
-    if (av_bsf_send_packet(bsf_, pkt) < 0)
-      throw std::runtime_error("av_bsf_send_packet failed");
+  // ── 1. Copy BGR data from cv::Mat to AVFrame ─────────────────────────────
+  int ret = av_frame_make_writable(enc_frame_);
+  if (ret < 0)
+    throw std::runtime_error("av_frame_make_writable: " + averr(ret));
 
-    if (av_bsf_receive_packet(bsf_, bsf_pkt_) < 0)
-      throw std::runtime_error("av_bsf_receive_packet failed on first frame "
-                               "— is prepend_sps_pps_to_idr enabled?");
-
-    bsf_pkt_->pts = bsf_pkt_->dts = next_pts_;
-    bsf_pkt_->duration = frame_duration_;
-    bsf_pkt_->stream_index = 0;
-
-    init_muxer(bsf_->par_out);
-    stream_start_wall_ = Clock::now(); // anchor wall clock to pts=0
-    write_packet(bsf_pkt_);
-    av_packet_unref(bsf_pkt_);
-    header_written_ = true;
-  } else {
-    if (av_bsf_send_packet(bsf_, pkt) < 0) {
-      av_packet_free(&pkt);
-      return;
-    }
-    while (av_bsf_receive_packet(bsf_, bsf_pkt_) == 0) {
-      bsf_pkt_->pts = bsf_pkt_->dts = next_pts_;
-      bsf_pkt_->duration = frame_duration_;
-      bsf_pkt_->stream_index = 0;
-      write_packet(bsf_pkt_);
-      av_packet_unref(bsf_pkt_);
-    }
+  // Copy row by row (handles potential stride differences)
+  for (int y = 0; y < height_; y++)
+  {
+    memcpy(enc_frame_->data[0] + y * enc_frame_->linesize[0],
+           bgr_image.ptr(y),
+           width_ * 3); // 3 bytes per pixel (BGR)
   }
 
-  av_packet_free(&pkt);
+  enc_frame_->pts = next_pts_;
+
+  // ── 2. Send frame to encoder ──────────────────────────────────────────────
+  ret = avcodec_send_frame(enc_ctx_, enc_frame_);
+  if (ret < 0)
+    throw std::runtime_error("avcodec_send_frame: " + averr(ret));
+
+  // ── 3. Receive encoded packets ───────────────────────────────────────────
+  while (ret >= 0)
+  {
+    ret = avcodec_receive_packet(enc_ctx_, enc_pkt_);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+      break;
+    if (ret < 0)
+      throw std::runtime_error("avcodec_receive_packet: " + averr(ret));
+
+    // Set packet timing
+    enc_pkt_->pts = enc_pkt_->dts = enc_pkt_->pts;
+    enc_pkt_->duration = frame_duration_;
+    enc_pkt_->stream_index = 0;
+
+    // ── 4. Initialize muxer on first packet ────────────────────────────────
+    if (!header_written_)
+    {
+      init_muxer(enc_ctx_);
+      stream_start_wall_ = Clock::now();
+      header_written_ = true;
+    }
+
+    // ── 5. Write packet to RTP stream ───────────────────────────────────────
+    write_packet(enc_pkt_);
+    av_packet_unref(enc_pkt_);
+  }
+
   next_pts_ += frame_duration_;
 }
 
-FfmpegRtpPipeline::~FfmpegRtpPipeline() {
-  // Flush the BSF
-  if (bsf_) {
-    av_bsf_send_packet(bsf_, nullptr);
-    while (av_bsf_receive_packet(bsf_, bsf_pkt_) == 0) {
+FfmpegRtpPipeline::~FfmpegRtpPipeline()
+{
+  // Flush encoder
+  if (enc_ctx_)
+  {
+    avcodec_send_frame(enc_ctx_, nullptr);
+    while (avcodec_receive_packet(enc_ctx_, enc_pkt_) == 0)
+    {
       if (header_written_)
-        write_packet(bsf_pkt_);
-      av_packet_unref(bsf_pkt_);
+        write_packet(enc_pkt_);
+      av_packet_unref(enc_pkt_);
     }
-    av_bsf_free(&bsf_);
+    avcodec_free_context(&enc_ctx_);
   }
-  av_packet_free(&bsf_pkt_);
 
-  if (oc_) {
+  av_frame_free(&enc_frame_);
+  av_packet_free(&enc_pkt_);
+
+  if (oc_)
+  {
     if (header_written_)
       av_write_trailer(oc_);
     if (!(oc_->oformat->flags & AVFMT_NOFILE))
@@ -115,44 +152,43 @@ FfmpegRtpPipeline::~FfmpegRtpPipeline() {
   }
 }
 
-void FfmpegRtpPipeline::init_muxer(AVCodecParameters *par_out) {
-  // ── 2. Allocate output context ───────────────────────────────────────────
+void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx)
+{
+  // ── 1. Allocate output context ───────────────────────────────────────────
   int ret = avformat_alloc_output_context2(&oc_, nullptr, "rtp", url_.c_str());
   if (ret < 0 || !oc_)
     throw std::runtime_error("avformat_alloc_output_context2: " + averr(ret));
-
-  // ── 3. Create the video stream and copy codec params from the BSF ────────
+  
+  // ── 2. Create the video stream and copy codec params from encoder ────────
   st_ = avformat_new_stream(oc_, nullptr);
   if (!st_)
     throw std::runtime_error("avformat_new_stream failed");
-
-  // This copies extradata (VPS/SPS/PPS) that extract_extradata populated
-  ret = avcodec_parameters_copy(st_->codecpar, par_out);
+  
+  ret = avcodec_parameters_from_context(st_->codecpar, enc_ctx);
   if (ret < 0)
-    throw std::runtime_error("avcodec_parameters_copy: " + averr(ret));
-
+    throw std::runtime_error("avcodec_parameters_from_context: " + averr(ret));
+  
   st_->time_base = {1, 90000};
-
-  // ── 4. Open the UDP socket ───────────────────────────────────────────────
+  
+  // ── 3. Open the UDP socket ───────────────────────────────────────────────
   ret = avio_open(&oc_->pb, url_.c_str(), AVIO_FLAG_WRITE);
   if (ret < 0)
     throw std::runtime_error("avio_open(" + url_ + "): " + averr(ret));
-
-  // ── 5. Write header ──────────────────────────────────────────────────────
+  
+  // ── 4. Write header ──────────────────────────────────────────────────────
   oc_->start_time_realtime = av_gettime();
   oc_->flags |= AVFMT_FLAG_FLUSH_PACKETS;
-
+  
   AVDictionary *opts = nullptr;
   av_dict_set_int(&opts, "pkt_size", 1472, 0);
   av_dict_set(&opts, "rtpflags", "send_bye", 0);
   av_dict_set_int(&opts, "buffer_size", 65536, 0);
-  // Set the RTP clock rate so RTCP SR timestamps are correct
   av_dict_set_int(&opts, "payload_type", 96, 0);
   ret = avformat_write_header(oc_, &opts);
   av_dict_free(&opts);
   if (ret < 0)
     throw std::runtime_error("avformat_write_header: " + averr(ret));
-
+  
   // Print SDP for the receiver
   {
     char sdp[4096] = {};
@@ -162,13 +198,12 @@ void FfmpegRtpPipeline::init_muxer(AVCodecParameters *par_out) {
   }
 }
 
-void FfmpegRtpPipeline::write_packet(AVPacket *pkt) {
+void FfmpegRtpPipeline::write_packet(AVPacket *pkt)
+{
   // Convert this packet's PTS (in 90 kHz ticks) to a wall-clock deadline
   // and sleep until we reach it. This prevents the RTP sender from blasting
   // all packets instantly and overflowing the receiver's jitter buffer.
-  // TODO (Matt) why does this help so much?
   {
-    // pts ticks → microseconds: pts * 1_000_000 / 90_000
     const int64_t pts_us = pkt->pts * 1'000'000LL / 90'000LL;
     const auto deadline =
         stream_start_wall_ + std::chrono::microseconds(pts_us);
@@ -178,16 +213,14 @@ void FfmpegRtpPipeline::write_packet(AVPacket *pkt) {
   }
 
   // NAL type check for key-frame flag (skip start code)
-  if (pkt->size >= 5) {
+  if (pkt->size >= 5)
+  {
     int off = (pkt->data[2] == 1) ? 3 : 4;
     int nal_type = (pkt->data[off] >> 1) & 0x3F;
     if (nal_type == 19 || nal_type == 20)
       pkt->flags |= AV_PKT_FLAG_KEY;
   }
 
-  // Use av_write_frame (not interleaved) — we are the only stream and we
-  // are already delivering packets in order, so interleaving just adds
-  // an internal reorder queue that introduces extra latency.
   int ret = av_write_frame(oc_, pkt);
   if (ret < 0)
     std::fprintf(stderr, "WARN: av_write_frame: %s\n", averr(ret).c_str());

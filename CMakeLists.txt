@@ -55,7 +55,7 @@ else()
     )
 endif()
 
-find_package(OpenCL REQUIRED)
+# find_package(OpenCL REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(
@@ -74,7 +74,7 @@ target_link_libraries(
     hevc_meme
     PUBLIC
         ${V4L2_LIBRARIES}
-        OpenCL::OpenCL
+        # OpenCL::OpenCL
         yuv
         ${OPENCV_LIB_PATH}
         PkgConfig::LIBAV

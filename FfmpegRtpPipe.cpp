@@ -70,53 +70,38 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image)
 {
   if (bgr_image.cols != width_ || bgr_image.rows != height_)
     throw std::runtime_error("Image dimensions do not match pipeline configuration");
-
   if (bgr_image.type() != CV_8UC3)
     throw std::runtime_error("Image must be CV_8UC3 (BGR)");
+  if (!bgr_image.isContinuous())
+    throw std::runtime_error("Image must be continuous");
 
-  // ── 1. Copy BGR data from cv::Mat to AVFrame ─────────────────────────────
-  int ret = av_frame_make_writable(enc_frame_);
-  if (ret < 0)
-    throw std::runtime_error("av_frame_make_writable: " + averr(ret));
-
-  // Copy row by row (handles potential stride differences)
-  for (int y = 0; y < height_; y++)
-  {
-    memcpy(enc_frame_->data[0] + y * enc_frame_->linesize[0],
-           bgr_image.ptr(y),
-           width_ * 3); // 3 bytes per pixel (BGR)
-  }
-
+  // ── 1. Point AVFrame directly at cv::Mat data (zero-copy) ────────────────
+  enc_frame_->data[0] = bgr_image.data;
+  enc_frame_->linesize[0] = width_ * 3;  // BGR24 stride
   enc_frame_->pts = next_pts_;
 
   // ── 2. Send frame to encoder ──────────────────────────────────────────────
-  ret = avcodec_send_frame(enc_ctx_, enc_frame_);
+  int ret = avcodec_send_frame(enc_ctx_, enc_frame_);
   if (ret < 0)
     throw std::runtime_error("avcodec_send_frame: " + averr(ret));
-
   // ── 3. Receive encoded packets ───────────────────────────────────────────
-  while (ret >= 0)
-  {
+  while (ret >= 0) {
     ret = avcodec_receive_packet(enc_ctx_, enc_pkt_);
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
       break;
     if (ret < 0)
       throw std::runtime_error("avcodec_receive_packet: " + averr(ret));
 
-    // Set packet timing
     enc_pkt_->pts = enc_pkt_->dts = enc_pkt_->pts;
     enc_pkt_->duration = frame_duration_;
     enc_pkt_->stream_index = 0;
 
-    // ── 4. Initialize muxer on first packet ────────────────────────────────
-    if (!header_written_)
-    {
+    if (!header_written_) {
       init_muxer(enc_ctx_);
       stream_start_wall_ = Clock::now();
       header_written_ = true;
     }
 
-    // ── 5. Write packet to RTP stream ───────────────────────────────────────
     write_packet(enc_pkt_);
     av_packet_unref(enc_pkt_);
   }

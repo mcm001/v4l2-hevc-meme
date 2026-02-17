@@ -119,6 +119,8 @@ int main(int argc, char *argv[])
 
     while (frame_idx < N_FRAMES && run)
     {
+      auto t_start = Clock::now();
+
       // ── a. BGR → NV12
       auto frame = frames[frame_idx % frames.size()];
 
@@ -128,18 +130,19 @@ int main(int argc, char *argv[])
       // total_bytes += nal_size;
       const double conv_ms = ms_since(t_conv);
 
-      std::cout << "  Frame " << frame_idx 
-              << "  conv=" << conv_ms << " ms"
+      std::cout << frame_idx << "," << conv_ms << "\n";
+      // std::cout << "  Frame " << frame_idx 
+      //         << "  conv=" << conv_ms << " ms"
       //           << "  encode=" << encode_ms << " ms"
       //           << "  NAL=" << nal_size << " B\n";
-              << "\n";
+              // << "\n";
 
-      // // pace ourselves
-      // auto total_time = ms_since(t_conv);
-      // if (total_time < (1000 / 30)) {
-      //   std::this_thread::sleep_for(
-      //       std::chrono::milliseconds((int)((1000 / 30) - total_time)));
-      // }
+      // pace ourselves
+      auto total_time = ms_since(t_start);
+      if (total_time < (1000 / 30)) {
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds((int)((1000 / 30) - total_time)));
+      }
 
       ++frame_idx;
     }

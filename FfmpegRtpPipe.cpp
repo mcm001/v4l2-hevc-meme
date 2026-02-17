@@ -22,7 +22,7 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
     : width_(width), height_(height), url_(url)
 {
 
-  const int BITRATE = 4'000'000; // bps
+  const int BITRATE = 2'000'000; // bps
 
   // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
   const AVCodec *codec = avcodec_find_encoder_by_name("hevc_rkmpp");
@@ -42,8 +42,14 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
   enc_ctx_->bit_rate = BITRATE;
   enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
 
+  // Try to reduce internal buffering
+  AVDictionary *opts = nullptr;
+  av_dict_set(&opts, "preset", "ultrafast", 0);
+  av_dict_set_int(&opts, "refs", 1, 0);
+
   // ── 3. Open the encoder ───────────────────────────────────────────────────
   int ret = avcodec_open2(enc_ctx_, codec, nullptr);
+  av_dict_free(&opts);
   if (ret < 0)
     throw std::runtime_error("avcodec_open2: " + averr(ret));
 
@@ -56,9 +62,12 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
   enc_frame_->width = width_;
   enc_frame_->height = height_;
 
-  ret = av_frame_get_buffer(enc_frame_, 0);
-  if (ret < 0)
-    throw std::runtime_error("av_frame_get_buffer: " + averr(ret));
+  // ret = av_frame_get_buffer(enc_frame_, 0);
+  // if (ret < 0)
+  //   throw std::runtime_error("av_frame_get_buffer: " + averr(ret));
+  enc_frame_->format = enc_ctx_->pix_fmt;
+  enc_frame_->width = width_;
+  enc_frame_->height = height_;
 
   // ── 5. Allocate packet for encoder output ────────────────────────────────
   enc_pkt_ = av_packet_alloc();
@@ -188,14 +197,14 @@ void FfmpegRtpPipeline::write_packet(AVPacket *pkt)
   // Convert this packet's PTS (in 90 kHz ticks) to a wall-clock deadline
   // and sleep until we reach it. This prevents the RTP sender from blasting
   // all packets instantly and overflowing the receiver's jitter buffer.
-  {
-    const int64_t pts_us = pkt->pts * 1'000'000LL / 90'000LL;
-    const auto deadline =
-        stream_start_wall_ + std::chrono::microseconds(pts_us);
-    const auto now = Clock::now();
-    if (deadline > now)
-      std::this_thread::sleep_until(deadline);
-  }
+  // {
+  //   const int64_t pts_us = pkt->pts * 1'000'000LL / 90'000LL;
+  //   const auto deadline =
+  //       stream_start_wall_ + std::chrono::microseconds(pts_us);
+  //   const auto now = Clock::now();
+  //   if (deadline > now)
+  //     std::this_thread::sleep_until(deadline);
+  // }
 
   // NAL type check for key-frame flag (skip start code)
   if (pkt->size >= 5)

@@ -21,7 +21,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-// #include "libyuv.h"
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
@@ -32,16 +31,12 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <opencv2/videoio.hpp>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 namespace fs = std::filesystem;
-
-const std::string INPUT_VIDEO = "Img_3733.mp4";
-const std::string OUTPUT_FILE = "output.h265";
-const int N_FRAMES = 3000;
-const int N_LOAD = 60;
 
 using Clock = std::chrono::steady_clock;
 using TimePoint = std::chrono::time_point<Clock>;
@@ -55,34 +50,6 @@ void stop_main(int s) {
   run = false;
 }
 
-std::vector<cv::Mat> loadFrames() {
-  std::cout << cv::getBuildInformation() << std::endl;
-  std::vector<cv::Mat> frames;
-  std::set<fs::path> sorted_by_name;
-
-  for (auto &entry : fs::directory_iterator("frames"))
-    sorted_by_name.insert(entry.path());
-
-  for (const auto &path : sorted_by_name) {
-    if (!run || frames.size() >= N_LOAD)
-      break;
-
-    printf("loading %s...\n", path.c_str());
-    auto f = cv::imread(path, cv::IMREAD_COLOR);
-    if (!f.empty()) {
-      frames.push_back(f);
-      printf("loaded %lu (%ix%i)\n", frames.size(), f.cols, f.rows);
-    }
-  }
-  printf("loaded %lu frames\n", frames.size());
-
-  if (frames.empty()) {
-    throw std::runtime_error("No frames");
-  }
-
-  return std::move(frames);
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,13 +60,31 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, stop_main);
   signal(SIGTERM, stop_main);
 
-  try {
-    // load from disk
-    auto frames = loadFrames();
+  cv::VideoCapture cap("/dev/v4l/by-id/usb-Arducam_Technology_Co.__Ltd._Arducam_OV2311_USB_Camera_UC621-video-index0");
 
-    // Peek at the first frame to get dimensions before configuring the encoder.
-    const int width = frames[0].cols;
-    const int height = frames[0].rows;
+  try {
+    cv::Mat frame;
+
+    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+    cap.set(cv::CAP_PROP_FPS, 30);
+    cap.set(cv::CAP_PROP_FPS, 30);
+
+    cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 3);
+    cap.set(cv::CAP_PROP_BRIGHTNESS, 0); // balanced
+
+    while (!cap.isOpened()) {
+        std::cout << "Waiting for camera to open..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        if (!run) {
+          return 0;
+        }
+    }
+
+    const int width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    const int height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
     std::cout << "Source: " << width << "x" << height << "\n\n";
 
     std::cout << "=== Pipeline ===\n";
@@ -108,46 +93,37 @@ int main(int argc, char *argv[]) {
     int frame_idx = 0;
     uint32_t out_buf_idx = 0;
 
-    FfmpegRtpPipeline rtpOutput{width, height, "rtp://10.0.0.4:18888"};
+    FfmpegRtpPipeline rtpOutput{width, height, "rtp://192.168.0.32:18888"};
 
-    while (frame_idx < N_FRAMES && run) {
+    while (run) {
       auto t_start = Clock::now();
 
-      // ── a. BGR → NV12
-      auto frame = frames[frame_idx % frames.size()];
+      cap >> frame;
+
+      if (frame.empty()) {
+        std::cerr << "Failed to grab frame" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        continue;
+      }
+      const double grab_ms = ms_since(t_start);
 
       auto t_conv = Clock::now();
       rtpOutput.handle_frame(frame);
-      // outfile.write((const char *)hevc_nal.data(), hevc_nal.size());
-      // total_bytes += nal_size;
       const double conv_ms = ms_since(t_conv);
 
-      std::cout << frame_idx << "," << conv_ms << "\n";
-      // std::cout << "  Frame " << frame_idx
-      //         << "  conv=" << conv_ms << " ms"
-      //           << "  encode=" << encode_ms << " ms"
-      //           << "  NAL=" << nal_size << " B\n";
-      // << "\n";
+      std::cout << frame_idx << "," << grab_ms << "," << conv_ms << "\n";
 
-      // pace ourselves
-      auto total_time = ms_since(t_start);
-      if (total_time < (1000 / 30)) {
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds((int)((1000 / 30) - total_time)));
-      }
+      // // pace ourselves
+      // auto total_time = ms_since(t_start);
+      // if (total_time < (1000 / 30)) {
+      //   std::this_thread::sleep_for(
+      //       std::chrono::milliseconds((int)((1000 / 30) - total_time)));
+      // }
 
       ++frame_idx;
     }
-
-    std::cout << "\nWrote " << total_bytes << " bytes"
-              << "\n";
-
-    // EncoderSession destructor runs here:
-    // STREAMOFF → REQBUFS(0) → munmap → close
   } catch (const std::exception &e) {
     std::cerr << "FATAL: " << e.what() << std::endl;
-    // EncoderSession destructor still runs here on exception unwind
-    // this doesn't handle sending an EOS though
     return 1;
   }
 

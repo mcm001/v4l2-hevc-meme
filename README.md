@@ -42,8 +42,8 @@ ffmpeg version 6.1.1-3ubuntu5+git20240717.8164ff7d~noble Copyright (c) 2000-2023
   libswresample   4. 12.100 /  4. 12.100
   libpostproc    57.  3.100 / 57.  3.100
 Encoder hevc_rkmpp [Rockchip MPP (Media Process Platform) HEVC encoder]:
-    General capabilities: delay hardware 
+    General capabilities: delay hardware
     Threading capabilities: none
-    Supported hardware devices: rkmpp rkmpp drm 
+    Supported hardware devices: rkmpp rkmpp drm
     Supported pixel formats: gray yuv420p yuv422p yuv444p nv12 nv21 nv16 nv24 yuyv422 yvyu422 uyvy422 rgb24 bgr24 rgba rgb0 bgra bgr0 argb 0rgb abgr 0bgr drm_prime
 ```

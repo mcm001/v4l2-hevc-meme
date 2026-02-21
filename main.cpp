@@ -50,14 +50,12 @@ using Ms = std::chrono::duration<double, std::milli>;
 static double ms_since(TimePoint t0) { return Ms(Clock::now() - t0).count(); }
 
 std::atomic_bool run{true};
-void stop_main(int s)
-{
+void stop_main(int s) {
   printf("Caught signal %d\n", s);
   run = false;
 }
 
-std::vector<cv::Mat> loadFrames()
-{
+std::vector<cv::Mat> loadFrames() {
   std::cout << cv::getBuildInformation() << std::endl;
   std::vector<cv::Mat> frames;
   std::set<fs::path> sorted_by_name;
@@ -65,23 +63,20 @@ std::vector<cv::Mat> loadFrames()
   for (auto &entry : fs::directory_iterator("frames"))
     sorted_by_name.insert(entry.path());
 
-  for (const auto &path : sorted_by_name)
-  {
+  for (const auto &path : sorted_by_name) {
     if (!run || frames.size() >= N_LOAD)
       break;
 
     printf("loading %s...\n", path.c_str());
     auto f = cv::imread(path, cv::IMREAD_COLOR);
-    if (!f.empty())
-    {
+    if (!f.empty()) {
       frames.push_back(f);
       printf("loaded %lu (%ix%i)\n", frames.size(), f.cols, f.rows);
     }
   }
   printf("loaded %lu frames\n", frames.size());
 
-  if (frames.empty())
-  {
+  if (frames.empty()) {
     throw std::runtime_error("No frames");
   }
 
@@ -92,15 +87,13 @@ std::vector<cv::Mat> loadFrames()
 // main
 // ─────────────────────────────────────────────────────────────────────────────
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 
   // signal handler
   signal(SIGINT, stop_main);
   signal(SIGTERM, stop_main);
 
-  try
-  {
+  try {
     // load from disk
     auto frames = loadFrames();
 
@@ -117,8 +110,7 @@ int main(int argc, char *argv[])
 
     FfmpegRtpPipeline rtpOutput{width, height, "rtp://10.0.0.4:18888"};
 
-    while (frame_idx < N_FRAMES && run)
-    {
+    while (frame_idx < N_FRAMES && run) {
       auto t_start = Clock::now();
 
       // ── a. BGR → NV12
@@ -131,11 +123,11 @@ int main(int argc, char *argv[])
       const double conv_ms = ms_since(t_conv);
 
       std::cout << frame_idx << "," << conv_ms << "\n";
-      // std::cout << "  Frame " << frame_idx 
+      // std::cout << "  Frame " << frame_idx
       //         << "  conv=" << conv_ms << " ms"
       //           << "  encode=" << encode_ms << " ms"
       //           << "  NAL=" << nal_size << " B\n";
-              // << "\n";
+      // << "\n";
 
       // pace ourselves
       auto total_time = ms_since(t_start);
@@ -152,9 +144,7 @@ int main(int argc, char *argv[])
 
     // EncoderSession destructor runs here:
     // STREAMOFF → REQBUFS(0) → munmap → close
-  }
-  catch (const std::exception &e)
-  {
+  } catch (const std::exception &e) {
     std::cerr << "FATAL: " << e.what() << std::endl;
     // EncoderSession destructor still runs here on exception unwind
     // this doesn't handle sending an EOS though

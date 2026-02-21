@@ -157,7 +157,7 @@ Transform tree:
 [h264 @ 0xaaaadef83f60] Format yuv420p chosen by get_format().
 [h264 @ 0xaaaadef83f60] Reinit context to 1920x1088, pix_fmt: yuv420p
 [h264 @ 0xaaaadef83f60] ct_type:0 pic_struct:0
-[h264 @ 0xaaaadef83f60] no picture 
+[h264 @ 0xaaaadef83f60] no picture
 [h264 @ 0xaaaadef83f60] ct_type:0 pic_struct:0
 [h264 @ 0xaaaadef83f60] nal_unit_type: 6(SEI), nal_ref_idc: 0
 [h264 @ 0xaaaadef83f60] nal_unit_type: 1(Coded slice of a non-IDR picture), nal_ref_idc: 3
@@ -585,7 +585,8 @@ Output #0, mp4, to 'test_output.mp4':
       encoder         : Lavc60.31.102 aac
 [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 0.0213333
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 0.0213333 queue head -1 ts N/A
-frame=   23 fps=0.0 q=-0.0 size=       0kB time=00:00:00.73 bitrate=   0.5kbits/s speed=3.87x    [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 0.0426667
+frame=   23 fps=0.0 q=-0.0 size=       0kB time=00:00:00.73 bitrate=   0.5kbits/s speed=3.87x
+[out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 0.0426667
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 0.0426667 queue head -1 ts N/A
 [h264_rkmpp @ 0xaaaadef952d0] Wrote 51344 bytes to decoder
 [h264_rkmpp @ 0xaaaadef952d0] Received a frame
@@ -1734,7 +1735,8 @@ frame=   23 fps=0.0 q=-0.0 size=       0kB time=00:00:00.73 bitrate=   0.5kbits/
 [NULL @ 0xaaaadef83f60] ct_type:0 pic_struct:0
 [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 3.75467
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 3.75467 queue head -1 ts N/A
-frame=  138 fps=0.0 q=-0.0 size=    1536kB time=00:00:04.56 bitrate=2755.5kbits/s speed=6.61x    [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 3.776
+frame=  138 fps=0.0 q=-0.0 size=    1536kB time=00:00:04.56 bitrate=2755.5kbits/s speed=6.61x
+[out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 3.776
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 3.776 queue head -1 ts N/A
 [h264_rkmpp @ 0xaaaadef952d0] Wrote 34092 bytes to decoder
 [h264_rkmpp @ 0xaaaadef952d0] Received a frame
@@ -3285,7 +3287,8 @@ frame=  138 fps=0.0 q=-0.0 size=    1536kB time=00:00:04.56 bitrate=2755.5kbits/
 [hevc_rkmpp @ 0xaaaadef899f0] Received a packet
 [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 8.87467
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 8.87467 queue head -1 ts N/A
-frame=  291 fps=244 q=-0.0 size=    4352kB time=00:00:09.66 bitrate=3688.1kbits/s speed=8.11x    [h264_rkmpp @ 0xaaaadef952d0] Wrote 23984 bytes to decoder
+frame=  291 fps=244 q=-0.0 size=    4352kB time=00:00:09.66 bitrate=3688.1kbits/s speed=8.11x
+[h264_rkmpp @ 0xaaaadef952d0] Wrote 23984 bytes to decoder
 [h264_rkmpp @ 0xaaaadef952d0] Received a frame
 [out#0/mp4 @ 0xaaaadef94190] sq: send 0 ts 9.86667
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 0 ts 9.86667 queue head -1 ts N/A
@@ -4792,7 +4795,8 @@ frame=  291 fps=244 q=-0.0 size=    4352kB time=00:00:09.66 bitrate=3688.1kbits/
 [NULL @ 0xaaaadef83f60] ct_type:0 pic_struct:0
 [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 13.824
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 13.824 queue head -1 ts N/A
-frame=  440 fps=260 q=-0.0 size=    6656kB time=00:00:14.63 bitrate=3726.2kbits/s speed=8.64x    [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 13.8453
+frame=  440 fps=260 q=-0.0 size=    6656kB time=00:00:14.63 bitrate=3726.2kbits/s speed=8.64x
+[out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 13.8453
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 13.8453 queue head -1 ts N/A
 [h264_rkmpp @ 0xaaaadef952d0] Wrote 18535 bytes to decoder
 [NULL @ 0xaaaadef83f60] ct_type:0 pic_struct:0
@@ -5935,7 +5939,8 @@ frame=  440 fps=260 q=-0.0 size=    6656kB time=00:00:14.63 bitrate=3726.2kbits/
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 0 ts 18.5667 queue head -1 ts N/A
 [hevc_rkmpp @ 0xaaaadef899f0] Wrote 5136384 bytes to encoder
 [hevc_rkmpp @ 0xaaaadef899f0] Received a packet
-frame=  552 fps=252 q=-0.0 size=    8448kB time=00:00:18.40 bitrate=3761.2kbits/s speed=8.39x    [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 17.6
+frame=  552 fps=252 q=-0.0 size=    8448kB time=00:00:18.40 bitrate=3761.2kbits/s speed=8.39x
+[out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 17.6
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 17.6 queue head -1 ts N/A
 [h264_rkmpp @ 0xaaaadef952d0] Wrote 28544 bytes to decoder
 [h264_rkmpp @ 0xaaaadef952d0] Received a frame
@@ -7406,7 +7411,8 @@ frame=  552 fps=252 q=-0.0 size=    8448kB time=00:00:18.40 bitrate=3761.2kbits/
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 22.4213 queue head -1 ts N/A
 [out#0/mp4 @ 0xaaaadef94190] sq: send 1 ts 22.4427
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 1 ts 22.4427 queue head -1 ts N/A
-frame=  698 fps=259 q=-0.0 size=   11008kB time=00:00:23.23 bitrate=3881.4kbits/s speed=8.61x    [h264_rkmpp @ 0xaaaadef952d0] Wrote 9065 bytes to decoder
+frame=  698 fps=259 q=-0.0 size=   11008kB time=00:00:23.23 bitrate=3881.4kbits/s speed=8.61x
+[h264_rkmpp @ 0xaaaadef952d0] Wrote 9065 bytes to decoder
 [h264_rkmpp @ 0xaaaadef952d0] Received a frame
 [out#0/mp4 @ 0xaaaadef94190] sq: send 0 ts 23.4333
 [out#0/mp4 @ 0xaaaadef94190] sq: receive 0 ts 23.4333 queue head -1 ts N/A
@@ -8012,14 +8018,14 @@ No more output streams to write to, finishing.
 [out#0/mp4 @ 0xaaaadef94190] Terminating muxer thread
 [AVIOContext @ 0xaaaadf1cc820] Statistics: 12728065 bytes written, 2 seeks, 52 writeouts
 [out#0/mp4 @ 0xaaaadef94190] Output file #0 (test_output.mp4):
-[out#0/mp4 @ 0xaaaadef94190]   Output stream #0:0 (video): 749 frames encoded; 749 packets muxed (12294601 bytes); 
-[out#0/mp4 @ 0xaaaadef94190]   Output stream #0:1 (audio): 1168 frames encoded (1196032 samples); 1169 packets muxed (410374 bytes); 
+[out#0/mp4 @ 0xaaaadef94190]   Output stream #0:0 (video): 749 frames encoded; 749 packets muxed (12294601 bytes);
+[out#0/mp4 @ 0xaaaadef94190]   Output stream #0:1 (audio): 1168 frames encoded (1196032 samples); 1169 packets muxed (410374 bytes);
 [out#0/mp4 @ 0xaaaadef94190]   Total: 1918 packets (12704975 bytes) muxed
 [out#0/mp4 @ 0xaaaadef94190] video:12006kB audio:401kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.181708%
-frame=  749 fps=259 q=-0.0 Lsize=   12430kB time=00:00:24.93 bitrate=4083.9kbits/s speed=8.63x    
+frame=  749 fps=259 q=-0.0 Lsize=   12430kB time=00:00:24.93 bitrate=4083.9kbits/s speed=8.63x
 [aac @ 0xaaaadf1c0910] Qavg: 645.868
 [in#0/mov,mp4,m4a,3gp,3g2,mj2 @ 0xaaaadef83250] Input file #0 (test_video.mp4):
-[in#0/mov,mp4,m4a,3gp,3g2,mj2 @ 0xaaaadef83250]   Input stream #0:0 (video): 749 packets read (21762440 bytes); 749 frames decoded; 0 decode errors; 
-[in#0/mov,mp4,m4a,3gp,3g2,mj2 @ 0xaaaadef83250]   Input stream #0:1 (audio): 1169 packets read (614781 bytes); 1168 frames decoded; 0 decode errors (1196032 samples); 
+[in#0/mov,mp4,m4a,3gp,3g2,mj2 @ 0xaaaadef83250]   Input stream #0:0 (video): 749 packets read (21762440 bytes); 749 frames decoded; 0 decode errors;
+[in#0/mov,mp4,m4a,3gp,3g2,mj2 @ 0xaaaadef83250]   Input stream #0:1 (audio): 1169 packets read (614781 bytes); 1168 frames decoded; 0 decode errors (1196032 samples);
 [in#0/mov,mp4,m4a,3gp,3g2,mj2 @ 0xaaaadef83250]   Total: 1918 packets (22377221 bytes) demuxed
 [AVIOContext @ 0xaaaadef8b890] Statistics: 49270944 bytes read, 1313 seeks

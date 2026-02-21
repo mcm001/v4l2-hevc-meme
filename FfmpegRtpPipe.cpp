@@ -11,16 +11,14 @@
 #include <string>
 #include <thread>
 
-static std::string averr(int ret)
-{
+static std::string averr(int ret) {
   char buf[AV_ERROR_MAX_STRING_SIZE] = {};
   av_strerror(ret, buf, sizeof(buf));
   return {buf};
 }
 
 FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
-    : width_(width), height_(height), url_(url)
-{
+    : width_(width), height_(height), url_(url) {
 
   const int BITRATE = 2'000'000; // bps
 
@@ -75,10 +73,10 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
     throw std::runtime_error("av_packet_alloc (encoder) failed");
 }
 
-void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image)
-{
+void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
   if (bgr_image.cols != width_ || bgr_image.rows != height_)
-    throw std::runtime_error("Image dimensions do not match pipeline configuration");
+    throw std::runtime_error(
+        "Image dimensions do not match pipeline configuration");
   if (bgr_image.type() != CV_8UC3)
     throw std::runtime_error("Image must be CV_8UC3 (BGR)");
   if (!bgr_image.isContinuous())
@@ -86,7 +84,7 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image)
 
   // ── 1. Point AVFrame directly at cv::Mat data (zero-copy) ────────────────
   enc_frame_->data[0] = bgr_image.data;
-  enc_frame_->linesize[0] = width_ * 3;  // BGR24 stride
+  enc_frame_->linesize[0] = width_ * 3; // BGR24 stride
   enc_frame_->pts = next_pts_;
 
   // ── 2. Send frame to encoder ──────────────────────────────────────────────
@@ -118,14 +116,11 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image)
   next_pts_ += frame_duration_;
 }
 
-FfmpegRtpPipeline::~FfmpegRtpPipeline()
-{
+FfmpegRtpPipeline::~FfmpegRtpPipeline() {
   // Flush encoder
-  if (enc_ctx_)
-  {
+  if (enc_ctx_) {
     avcodec_send_frame(enc_ctx_, nullptr);
-    while (avcodec_receive_packet(enc_ctx_, enc_pkt_) == 0)
-    {
+    while (avcodec_receive_packet(enc_ctx_, enc_pkt_) == 0) {
       if (header_written_)
         write_packet(enc_pkt_);
       av_packet_unref(enc_pkt_);
@@ -136,8 +131,7 @@ FfmpegRtpPipeline::~FfmpegRtpPipeline()
   av_frame_free(&enc_frame_);
   av_packet_free(&enc_pkt_);
 
-  if (oc_)
-  {
+  if (oc_) {
     if (header_written_)
       av_write_trailer(oc_);
     if (!(oc_->oformat->flags & AVFMT_NOFILE))
@@ -146,33 +140,32 @@ FfmpegRtpPipeline::~FfmpegRtpPipeline()
   }
 }
 
-void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx)
-{
+void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx) {
   // ── 1. Allocate output context ───────────────────────────────────────────
   int ret = avformat_alloc_output_context2(&oc_, nullptr, "rtp", url_.c_str());
   if (ret < 0 || !oc_)
     throw std::runtime_error("avformat_alloc_output_context2: " + averr(ret));
-  
+
   // ── 2. Create the video stream and copy codec params from encoder ────────
   st_ = avformat_new_stream(oc_, nullptr);
   if (!st_)
     throw std::runtime_error("avformat_new_stream failed");
-  
+
   ret = avcodec_parameters_from_context(st_->codecpar, enc_ctx);
   if (ret < 0)
     throw std::runtime_error("avcodec_parameters_from_context: " + averr(ret));
-  
+
   st_->time_base = {1, 90000};
-  
+
   // ── 3. Open the UDP socket ───────────────────────────────────────────────
   ret = avio_open(&oc_->pb, url_.c_str(), AVIO_FLAG_WRITE);
   if (ret < 0)
     throw std::runtime_error("avio_open(" + url_ + "): " + averr(ret));
-  
+
   // ── 4. Write header ──────────────────────────────────────────────────────
   oc_->start_time_realtime = av_gettime();
   oc_->flags |= AVFMT_FLAG_FLUSH_PACKETS;
-  
+
   AVDictionary *opts = nullptr;
   av_dict_set_int(&opts, "pkt_size", 1472, 0);
   av_dict_set(&opts, "rtpflags", "send_bye", 0);
@@ -182,7 +175,7 @@ void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx)
   av_dict_free(&opts);
   if (ret < 0)
     throw std::runtime_error("avformat_write_header: " + averr(ret));
-  
+
   // Print SDP for the receiver
   {
     char sdp[4096] = {};
@@ -192,8 +185,7 @@ void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx)
   }
 }
 
-void FfmpegRtpPipeline::write_packet(AVPacket *pkt)
-{
+void FfmpegRtpPipeline::write_packet(AVPacket *pkt) {
   // Convert this packet's PTS (in 90 kHz ticks) to a wall-clock deadline
   // and sleep until we reach it. This prevents the RTP sender from blasting
   // all packets instantly and overflowing the receiver's jitter buffer.
@@ -207,8 +199,7 @@ void FfmpegRtpPipeline::write_packet(AVPacket *pkt)
   // }
 
   // NAL type check for key-frame flag (skip start code)
-  if (pkt->size >= 5)
-  {
+  if (pkt->size >= 5) {
     int off = (pkt->data[2] == 1) ? 3 : 4;
     int nal_type = (pkt->data[off] >> 1) & 0x3F;
     if (nal_type == 19 || nal_type == 20)

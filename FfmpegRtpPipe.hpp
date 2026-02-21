@@ -36,6 +36,8 @@ private:
   using Clock = std::chrono::steady_clock;
   std::chrono::time_point<Clock> stream_start_wall_;
 
+  std::optional<Clock::time_point> first_frame_time_;
+
 public:
   FfmpegRtpPipeline(int width, int height, const char *url);
   ~FfmpegRtpPipeline();

@@ -82,10 +82,19 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
   if (!bgr_image.isContinuous())
     throw std::runtime_error("Image must be continuous");
 
+  // ── Use actual wall-clock time for PTS ───────────────────────────────────
+  auto now = Clock::now();
+  if (!first_frame_time_) {
+    first_frame_time_ = now;
+  }
+  auto elapsed = now - first_frame_time_.value();
+  int64_t pts = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+  pts = pts * 90 / 1'000'000;  // Convert microseconds to 90kHz clock
+
   // ── 1. Point AVFrame directly at cv::Mat data (zero-copy) ────────────────
   enc_frame_->data[0] = bgr_image.data;
   enc_frame_->linesize[0] = width_ * 3; // BGR24 stride
-  enc_frame_->pts = next_pts_;
+  enc_frame_->pts = pts;
 
   // ── 2. Send frame to encoder ──────────────────────────────────────────────
   int ret = avcodec_send_frame(enc_ctx_, enc_frame_);

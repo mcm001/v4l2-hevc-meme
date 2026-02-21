@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     int frame_idx = 0;
     uint32_t out_buf_idx = 0;
 
-    FfmpegRtpPipeline rtpOutput{width, height, "rtp://192.168.0.32:18888"};
+    FfmpegRtpPipeline rtpOutput{width, height, "rtp://192.168.0.3:18888"};
 
     while (run) {
       auto t_start = Clock::now();
@@ -105,6 +105,25 @@ int main(int argc, char *argv[]) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         continue;
       }
+
+
+  // === ADD THE TIMESTAMP CODE HERE ===
+  auto now = std::chrono::system_clock::now();
+  auto duration = now.time_since_epoch();
+  auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+  auto seconds = millis / 1000;
+  auto ms = millis % 1000;
+  
+  time_t time_t_now = seconds;
+  struct tm* tm_info = localtime(&time_t_now);
+  char timestamp_str[32];
+  snprintf(timestamp_str, sizeof(timestamp_str), "%02d:%02d:%02d.%03lld",
+           tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, ms);
+  
+  cv::putText(frame, timestamp_str, cv::Point(10, 30),
+              cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
+  // === END TIMESTAMP CODE ===
+
       const double grab_ms = ms_since(t_start);
 
       auto t_conv = Clock::now();

@@ -180,6 +180,7 @@ void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx) {
   av_dict_set(&opts, "rtpflags", "send_bye", 0);
   av_dict_set_int(&opts, "buffer_size", 65536, 0);
   av_dict_set_int(&opts, "payload_type", 96, 0);
+  av_dict_set_int(&opts, "rtcp_port", 18889, 0); // todo pass in RTCP port
   ret = avformat_write_header(oc_, &opts);
   av_dict_free(&opts);
   if (ret < 0)

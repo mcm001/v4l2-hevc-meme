@@ -2,3 +2,5 @@ build
 frame.png
 *.h265
 perf.data*
+.gradle
+bin

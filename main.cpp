@@ -21,7 +21,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <libyuv.h>
+// #include "libyuv.h"
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
@@ -75,7 +75,7 @@ std::vector<cv::Mat> loadFrames()
     if (!f.empty())
     {
       frames.push_back(f);
-      printf("loaded %lu (%lux%lu)\n", frames.size(), f.cols, f.rows);
+      printf("loaded %lu (%ix%i)\n", frames.size(), f.cols, f.rows);
     }
   }
   printf("loaded %lu frames\n", frames.size());

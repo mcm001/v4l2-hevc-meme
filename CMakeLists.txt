@@ -9,7 +9,8 @@ find_library(V4L1_LIBRARY NAMES v4l1 libv4l1 HINTS /usr/lib /usr/local/lib)
 
 set(OPENCV_YEAR "frc2025")
 set(OPENCV_VERSION "4.10.0-3")
-set(OPENCV_ARCH "linuxarm64")
+# set(OPENCV_ARCH "linuxarm64")
+set(OPENCV_ARCH "linuxx86-64")
 # also valid: windowsx86-64
 
 # type can be "", "debug", "static", or "staticdebug"
@@ -33,6 +34,44 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(opencv_header)
+
+include(FetchContent)
+
+# --- wpilibsuite/allwpilib (wpinet + wpiutil) ---
+FetchContent_Declare(
+    allwpilib
+    GIT_REPOSITORY https://github.com/wpilibsuite/allwpilib.git
+    GIT_TAG        main  # pin to a tag/commit for reproducibility
+    GIT_SHALLOW    TRUE
+)
+
+# Disable everything in allwpilib you don't need
+set(WITH_JAVA        OFF CACHE BOOL "" FORCE)
+set(WITH_CSCORE      OFF CACHE BOOL "" FORCE)
+set(WITH_NTCORE      ON CACHE BOOL "" FORCE)
+set(WITH_WPIMATH     OFF CACHE BOOL "" FORCE)
+set(WITH_WPILIB     OFF CACHE BOOL "" FORCE)
+set(WITH_WPIUNITS    OFF CACHE BOOL "" FORCE)
+set(WITH_SIMULATION_MODULES OFF CACHE BOOL "" FORCE)
+set(WITH_TESTS       OFF CACHE BOOL "" FORCE)
+set(WITH_GUI         OFF CACHE BOOL "" FORCE)
+set(WITH_PROTOBUF    OFF CACHE BOOL "" FORCE)
+set(WITH_BENCHMARK    OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(allwpilib)
+
+# --- libyuv ---
+FetchContent_Declare(
+    libyuv
+    GIT_REPOSITORY https://chromium.googlesource.com/libyuv/libyuv
+    GIT_TAG        main  # pin to a commit hash for stability
+    GIT_SHALLOW    TRUE
+)
+
+# libyuv optionally depends on libjpeg; disable if you don't want it
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(libyuv)
+
 
 # This probably doesn't work great with shared libraries, but I don't care about those right now
 file(
@@ -70,12 +109,25 @@ pkg_check_modules(
 add_executable(hevc_meme main.cpp FfmpegRtpPipe.cpp)
 
 target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH})
+# hack :(
+target_include_directories(yuv PUBLIC $<BUILD_INTERFACE:${libyuv_SOURCE_DIR}/include>)
+
 target_link_libraries(
     hevc_meme
     PUBLIC
         ${V4L2_LIBRARIES}
         # OpenCL::OpenCL
-        yuv
         ${OPENCV_LIB_PATH}
         PkgConfig::LIBAV
+        wpinet
+        wpiutil
+        yuv
+)
+
+add_executable(rtsp_server rtsp_server.cpp)
+target_link_libraries(
+    rtsp_server
+    PUBLIC
+        wpinet
+        wpiutil
 )

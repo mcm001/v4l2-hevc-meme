@@ -12,24 +12,74 @@
 #include <cstdio>
 #include <memory>
 
-#include <wpi/print.h>
-
 #include "wpinet/EventLoopRunner.h"
 #include "wpinet/HttpServerConnection.h"
 #include "wpinet/UrlParser.h"
 #include "wpinet/uv/Loop.h"
 #include "wpinet/uv/Tcp.h"
+#include <span>
+#include <wpi/print.h>
+#include <wpi/SmallVector.h>
+#include <wpinet/raw_uv_ostream.h>
 
 namespace uv = wpi::uv;
+
+enum class RtspState {
+  OPTIONS,
+  DESCRIBE,
+  SETUP,
+  PLAY,
+};
 
 class RtspServerConnection
     : public std::enable_shared_from_this<RtspServerConnection> {
 private:
   std::shared_ptr<uv::Stream> m_stream;
-  std::string m_buf;
+  std::string m_buf{};
+
+  RtspState state = RtspState::OPTIONS;
+
+  // From HttpServerConnection.cpp
+  void SendData(std::span<const uv::Buffer> bufs, bool closeAfter) {
+    m_stream->Write(bufs,
+                    [closeAfter, stream = m_stream](auto bufs, uv::Error) {
+                      for (auto &&buf : bufs) {
+                        buf.Deallocate();
+                      }
+                      if (closeAfter) {
+                        stream->Close();
+                      }
+                    });
+  }
+
+  void SendResponse(
+      int code, const std::string &reason, const std::string &cseq,
+      // std::initializer_list<std::pair<std::string, std::string>> headers,
+      const std::string &body = "") {
+    std::string resp =
+        "RTSP/1.0 " + std::to_string(code) + " " + reason + "\r\n";
+    resp += "CSeq: " + cseq + "\r\n";
+    // for (auto &[k, v] : headers)
+    //   resp += k + ": " + v + "\r\n";
+    if (!body.empty())
+      resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+    resp += "\r\n";
+    resp += body;
+
+    wpi::SmallVector<uv::Buffer, 4> toSend;
+    wpi::raw_uv_ostream os{toSend, 4096};
+    os << resp;
+    SendData(os.bufs(), false);
+  }
+
+  void SendError(int code, const std::string &reason, const std::string &cseq) {
+    SendResponse(code, reason, cseq, {});
+  }
 
   void HandleRequest(const std::string_view request) {
     wpi::print(stderr, "Got request:====={}====", request);
+
+    SendResponse(200, "OK", "1", "Hello world!");
   }
 
 public:
@@ -56,7 +106,11 @@ public:
       }
     });
 
-    m_stream->end.connect([self]() { self->m_stream->Close(); });
+    m_stream->end.connect([self]() {
+      wpi::print(stderr, "Client disconnected (state={})\n",
+                 static_cast<int>(self->state));
+      self->m_stream->Close();
+    });
 
     m_stream->StartRead();
   }

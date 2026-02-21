@@ -66,6 +66,8 @@ private:
     resp += "\r\n";
     resp += body;
 
+    wpi::print(stderr, "Sending response:>>>>{}<<<<\n", resp);
+
     wpi::SmallVector<uv::Buffer, 4> toSend;
     wpi::raw_uv_ostream os{toSend, 4096};
     os << resp;
@@ -77,7 +79,7 @@ private:
   }
 
   void HandleRequest(const std::string_view request) {
-    wpi::print(stderr, "Got request:====={}====", request);
+    wpi::print(stderr, "Got request:>>>>{}<<<<\n", request);
 
     SendResponse(200, "OK", "1", "Hello world!");
   }

@@ -12,15 +12,17 @@
 #include <cstdio>
 #include <memory>
 
-#include "wpinet/EventLoopRunner.h"
-#include "wpinet/HttpServerConnection.h"
-#include "wpinet/UrlParser.h"
-#include "wpinet/uv/Loop.h"
-#include "wpinet/uv/Tcp.h"
+#include <format>
 #include <span>
-#include <wpi/print.h>
 #include <wpi/SmallVector.h>
+#include <wpi/print.h>
+#include <wpinet/EventLoopRunner.h>
+#include <wpinet/HttpServerConnection.h>
+#include <wpinet/UrlParser.h>
 #include <wpinet/raw_uv_ostream.h>
+#include <wpinet/uv/Loop.h>
+#include <wpinet/uv/Tcp.h>
+#include <wpinet/uv/util.h>
 
 namespace uv = wpi::uv;
 
@@ -29,15 +31,33 @@ enum class RtspState {
   DESCRIBE,
   SETUP,
   PLAY,
+  TEARDOWN,
 };
+
+static std::string DUMMY_SDP = R"(v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=No Name
+c=IN IP4 10.0.0.4
+t=0 0
+a=tool:libavformat 60.16.100
+m=video 18888 RTP/AVP 96
+b=AS:2000
+a=rtpmap:96 H265/90000
+a=fmtp:96 sprop-vps=QAEMAf//AWAAAAMAgAAAAwAAAwB4vAk=; sprop-sps=QgEBAWAAAAMAgAAAAwAAAwB4oAPAgBDljb5JMpgEAAADAAQAAAMAeCA=; sprop-pps=RAHA88BNkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=)";
+
+static int TOTALLY_RANDOM_SRC_PORT = 18923;
 
 class RtspServerConnection
     : public std::enable_shared_from_this<RtspServerConnection> {
 private:
-  std::shared_ptr<uv::Stream> m_stream;
+  std::shared_ptr<uv::Tcp> m_stream;
   std::string m_buf{};
 
   RtspState state = RtspState::OPTIONS;
+  std::string m_session;
+
+  std::string m_destIp;
+  int m_destPort;
 
   // From HttpServerConnection.cpp
   void SendData(std::span<const uv::Buffer> bufs, bool closeAfter) {
@@ -54,19 +74,18 @@ private:
 
   void SendResponse(
       int code, const std::string &reason, const std::string &cseq,
-      // std::initializer_list<std::pair<std::string, std::string>> headers,
+      std::initializer_list<std::pair<std::string, std::string>> headers,
       const std::string &body = "") {
     std::string resp =
         "RTSP/1.0 " + std::to_string(code) + " " + reason + "\r\n";
     resp += "CSeq: " + cseq + "\r\n";
-    // for (auto &[k, v] : headers)
-    //   resp += k + ": " + v + "\r\n";
-    if (!body.empty())
-      resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+    for (auto &[k, v] : headers)
+      resp += k + ": " + v + "\r\n";
+    resp += "Content-Length: " + std::to_string(body.size()) + "\r\n";
     resp += "\r\n";
     resp += body;
 
-    wpi::print(stderr, "Sending response:>>>>{}<<<<\n", resp);
+    wpi::print(stderr, "\nSending response:>>>>\n{}\n<<<<\n", resp);
 
     wpi::SmallVector<uv::Buffer, 4> toSend;
     wpi::raw_uv_ostream os{toSend, 4096};
@@ -78,14 +97,140 @@ private:
     SendResponse(code, reason, cseq, {});
   }
 
-  void HandleRequest(const std::string_view request) {
-    wpi::print(stderr, "Got request:>>>>{}<<<<\n", request);
+  RtspState requestTypeFromRequest(const std::string_view request) {
+    if (request.starts_with("OPTIONS"))
+      return RtspState::OPTIONS;
+    if (request.starts_with("DESCRIBE"))
+      return RtspState::DESCRIBE;
+    if (request.starts_with("SETUP"))
+      return RtspState::SETUP;
+    if (request.starts_with("PLAY"))
+      return RtspState::PLAY;
+    if (request.starts_with("TEARDOWN"))
+      return RtspState::TEARDOWN;
+    return RtspState::OPTIONS; // default to something
+  }
 
-    SendResponse(200, "OK", "1", "Hello world!");
+  std::string cseqFromRequest(const std::string_view request) {
+    static const std::string cseqHeader = "CSeq:";
+    auto cseqPos = request.find(cseqHeader);
+    if (cseqPos == std::string_view::npos)
+      return "";
+
+    cseqPos += cseqHeader.size();
+    // Find start of substring
+    while (cseqPos < request.size() && std::isspace(request[cseqPos]))
+      ++cseqPos;
+    // find end of substring (whitespace, newline)
+    size_t cseqEnd = cseqPos;
+    while (cseqEnd < request.size() && !std::isspace(request[cseqEnd]))
+      ++cseqEnd;
+
+    return std::string{request.substr(cseqPos, cseqEnd - cseqPos)};
+  }
+
+  /**
+   * Extract the destination IP and port from a SETUP request's Transport
+   * header, if present.
+   */
+  bool ExtractSetupDest(const std::string_view request) {
+    // Request will look like
+    // "Transport: RTP/AVP;unicast;client_port=18888-18889"
+
+    // Dest port from RTSP request
+    {
+      static const std::string transportHeader = "Transport:";
+      auto transportPos = request.find(transportHeader);
+      if (transportPos == std::string_view::npos)
+        return false;
+
+      // Only accept RTP/AVP/unicast
+      auto rtpPos = request.find("RTP/AVP;unicast", transportPos);
+      if (rtpPos == std::string_view::npos)
+        return false;
+
+      // Find client_port=, and convert to integer
+      static const std::string clientPortStr = "client_port=";
+      auto clientPortPos = request.find(clientPortStr, transportPos);
+      if (clientPortPos == std::string_view::npos)
+        return false;
+      clientPortPos += clientPortStr.size();
+      size_t clientPortEnd = request.find_first_of("\r\n", clientPortPos);
+      if (clientPortEnd == std::string_view::npos)
+        return false;
+      std::string clientPortStrVal = std::string{
+          request.substr(clientPortPos, clientPortEnd - clientPortPos)};
+      auto dashPos = clientPortStrVal.find('-');
+      if (dashPos == std::string::npos)
+        return false;
+      std::string clientPortStrVal1 = clientPortStrVal.substr(0, dashPos);
+
+      m_destPort = std::stoul(clientPortStrVal1);
+    }
+
+    // Dest IP from peer address of the connection
+    {
+      std::string peerAddr;
+      unsigned int peerPort = 0;
+      if (uv::AddrToName(m_stream->GetPeer(), &peerAddr, &peerPort) == 0) {
+        m_destIp = peerAddr;
+      } else {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  void HandleRequest(const std::string_view request) {
+    wpi::print(stderr, "Got request:>>>>\n{}\n<<<<\n", request);
+
+    auto reqType = requestTypeFromRequest(request);
+    auto cseq = cseqFromRequest(request);
+    // wpi::println(stderr, "Request type: {}", static_cast<int>(reqType));
+
+    switch (reqType) {
+    case RtspState::OPTIONS:
+      SendResponse(200, "OK", cseq,
+                   {{"Public", "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN"}},
+                   "");
+      break;
+    case RtspState::DESCRIBE:
+      SendResponse(200, "OK", cseq, {{"Content-Type", "application/sdp"}},
+                   DUMMY_SDP);
+      break;
+    case RtspState::SETUP: {
+      m_session = "12345678"; // TODO: generate something random
+
+      ExtractSetupDest(request);
+
+      std::string transport = std::format(
+          "RTP/AVP;unicast;client_port={}-{};server_port={}-{}", m_destPort,
+          m_destPort + 1, TOTALLY_RANDOM_SRC_PORT, TOTALLY_RANDOM_SRC_PORT + 1);
+
+      SendResponse(200, "OK", cseq,
+                   {{"Session", m_session}, {"Transport", transport}});
+      break;
+    }
+    case RtspState::PLAY:
+      // TODO session verification
+      // TODO extract Range from request
+      SendResponse(200, "OK", cseq,
+                   {{"Session", m_session}, {"Range", "npt=0-"}}, "");
+      break;
+    case RtspState::TEARDOWN:
+      SendResponse(200, "OK", cseq, {{"Session", m_session}}, "");
+      
+      // and close ourself, since the client is done
+      m_stream->Close();
+      break;
+    default:
+      break;
+    }
   }
 
 public:
-  explicit RtspServerConnection(std::shared_ptr<uv::Stream> stream)
+  explicit RtspServerConnection(std::shared_ptr<uv::Tcp> stream)
       : m_stream(stream) {}
 
   void Start() {

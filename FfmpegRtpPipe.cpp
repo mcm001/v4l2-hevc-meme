@@ -108,8 +108,8 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
     if (ret < 0)
       throw std::runtime_error("avcodec_receive_packet: " + averr(ret));
 
-    enc_pkt_->pts = enc_pkt_->dts = enc_pkt_->pts;
-    enc_pkt_->duration = frame_duration_;
+    // enc_pkt_->pts = enc_pkt_->dts = enc_pkt_->pts;
+    // enc_pkt_->duration = frame_duration_;
     enc_pkt_->stream_index = 0;
 
     if (!header_written_) {
@@ -121,8 +121,6 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
     write_packet(enc_pkt_);
     av_packet_unref(enc_pkt_);
   }
-
-  next_pts_ += frame_duration_;
 }
 
 FfmpegRtpPipeline::~FfmpegRtpPipeline() {

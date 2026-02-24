@@ -88,8 +88,9 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
     first_frame_time_ = now;
   }
   auto elapsed = now - first_frame_time_.value();
-  int64_t pts = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-  pts = pts * 90 / 1'000'000;  // Convert microseconds to 90kHz clock
+  int64_t pts =
+      std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+  pts = pts * 90 / 1'000'000; // Convert microseconds to 90kHz clock
 
   // ── 1. Point AVFrame directly at cv::Mat data (zero-copy) ────────────────
   enc_frame_->data[0] = bgr_image.data;

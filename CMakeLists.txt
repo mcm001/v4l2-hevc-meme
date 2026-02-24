@@ -9,8 +9,8 @@ find_library(V4L1_LIBRARY NAMES v4l1 libv4l1 HINTS /usr/lib /usr/local/lib)
 
 set(OPENCV_YEAR "frc2025")
 set(OPENCV_VERSION "4.10.0-3")
-set(OPENCV_ARCH "linuxarm64")
-# set(OPENCV_ARCH "linuxx86-64")
+# set(OPENCV_ARCH "linuxarm64")
+set(OPENCV_ARCH "linuxx86-64")
 # also valid: windowsx86-64
 
 # type can be "", "debug", "static", or "staticdebug"
@@ -106,7 +106,11 @@ pkg_check_modules(
     libavutil
 )
 
-add_executable(hevc_meme main.cpp FfmpegRtpPipe.cpp)
+add_executable(hevc_meme
+    src/main.cpp
+    src/FfmpegRtpPipe.cpp
+    src/rtsp_server.cpp
+)
 
 target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH})
 # hack :(
@@ -123,11 +127,3 @@ target_link_libraries(
         wpiutil
         # yuv
 )
-
-# add_executable(rtsp_server rtsp_server.cpp)
-# target_link_libraries(
-    # rtsp_server
-    # PUBLIC
-        # wpinet
-        # wpiutil
-# )

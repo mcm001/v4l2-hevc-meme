@@ -19,7 +19,7 @@ int main() {
         return;
 
       std::fputs("Got a connection\n", stderr);
-      auto conn = std::make_shared<RtspServerConnection>(stream);
+      auto conn = std::make_shared<RtspServerConnectionHandler>(stream);
       stream->SetData(conn);
       conn->Start(); // wire up signals now that shared_ptr exists
     });

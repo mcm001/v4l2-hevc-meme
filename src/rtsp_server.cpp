@@ -44,8 +44,8 @@ a=fmtp:96 sprop-vps=QAEMAf//AWAAAAMAgAAAAwAAAwB4vAk=; sprop-sps=QgEBAWAAAAMAgAAA
 static int TOTALLY_RANDOM_SRC_PORT = 18923;
 
 // From HttpServerConnection.cpp
-void RtspServerConnection::SendData(std::span<const uv::Buffer> bufs,
-                                    bool closeAfter) {
+void RtspServerConnectionHandler::SendData(std::span<const uv::Buffer> bufs,
+                                           bool closeAfter) {
   m_stream->Write(bufs, [closeAfter, stream = m_stream](auto bufs, uv::Error) {
     for (auto &&buf : bufs) {
       buf.Deallocate();
@@ -56,7 +56,7 @@ void RtspServerConnection::SendData(std::span<const uv::Buffer> bufs,
   });
 }
 
-void RtspServerConnection::SendResponse(
+void RtspServerConnectionHandler::SendResponse(
     int code, const std::string &reason, const std::string &cseq,
     std::initializer_list<std::pair<std::string, std::string>> headers,
     const std::string &body) {
@@ -76,13 +76,13 @@ void RtspServerConnection::SendResponse(
   SendData(os.bufs(), false);
 }
 
-void RtspServerConnection::SendError(int code, const std::string &reason,
-                                     const std::string &cseq) {
+void RtspServerConnectionHandler::SendError(int code, const std::string &reason,
+                                            const std::string &cseq) {
   SendResponse(code, reason, cseq, {});
 }
 
-RtspState
-RtspServerConnection::requestTypeFromRequest(const std::string_view request) {
+RtspState RtspServerConnectionHandler::requestTypeFromRequest(
+    const std::string_view request) {
   if (request.starts_with("OPTIONS"))
     return RtspState::OPTIONS;
   if (request.starts_with("DESCRIBE"))
@@ -97,7 +97,7 @@ RtspServerConnection::requestTypeFromRequest(const std::string_view request) {
 }
 
 std::string
-RtspServerConnection::cseqFromRequest(const std::string_view request) {
+RtspServerConnectionHandler::cseqFromRequest(const std::string_view request) {
   static const std::string cseqHeader = "CSeq:";
   auto cseqPos = request.find(cseqHeader);
   if (cseqPos == std::string_view::npos)
@@ -119,7 +119,8 @@ RtspServerConnection::cseqFromRequest(const std::string_view request) {
  * Extract the destination IP and port from a SETUP request's Transport
  * header, if present.
  */
-bool RtspServerConnection::ExtractSetupDest(const std::string_view request) {
+bool RtspServerConnectionHandler::ExtractSetupDest(
+    const std::string_view request) {
   // Request will look like
   // "Transport: RTP/AVP;unicast;client_port=18888-18889"
 
@@ -168,7 +169,8 @@ bool RtspServerConnection::ExtractSetupDest(const std::string_view request) {
   return true;
 }
 
-void RtspServerConnection::HandleRequest(const std::string_view request) {
+void RtspServerConnectionHandler::HandleRequest(
+    const std::string_view request) {
   wpi::print(stderr, "Got request:>>>>\n{}\n<<<<\n", request);
 
   auto reqType = requestTypeFromRequest(request);
@@ -204,6 +206,8 @@ void RtspServerConnection::HandleRequest(const std::string_view request) {
                  "");
     break;
   case RtspState::TEARDOWN:
+    m_ffmpegStreamer.reset();
+
     SendResponse(200, "OK", cseq, {{"Session", m_session}}, "");
 
     // and close ourself, since the client is done
@@ -214,10 +218,11 @@ void RtspServerConnection::HandleRequest(const std::string_view request) {
   }
 }
 
-RtspServerConnection::RtspServerConnection(std::shared_ptr<uv::Tcp> stream)
+RtspServerConnectionHandler::RtspServerConnectionHandler(
+    std::shared_ptr<uv::Tcp> stream)
     : m_stream(stream) {}
 
-void RtspServerConnection::Start() {
+void RtspServerConnectionHandler::Start() {
   // Keep ourselves alive as long as the stream is alive.
   auto self = shared_from_this();
 

@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include "FfmpegRtpPipe.hpp"
 #include <memory>
+#include <optional>
 #include <wpinet/uv/Loop.h>
 #include <wpinet/uv/Tcp.h>
 
@@ -16,10 +18,10 @@ enum class RtspState {
   TEARDOWN,
 };
 
-class RtspServerConnection
-    : public std::enable_shared_from_this<RtspServerConnection> {
+class RtspServerConnectionHandler
+    : public std::enable_shared_from_this<RtspServerConnectionHandler> {
 public:
-  explicit RtspServerConnection(std::shared_ptr<wpi::uv::Tcp> stream);
+  explicit RtspServerConnectionHandler(std::shared_ptr<wpi::uv::Tcp> stream);
 
   void Start();
 
@@ -43,4 +45,7 @@ private:
 
   std::string m_destIp;
   int m_destPort;
+
+  // TODO for now this is one pipeline per RTSP connection
+  std::optional<FfmpegRtpPipeline> m_ffmpegStreamer;
 };

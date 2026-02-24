@@ -34,9 +34,8 @@ private:
   int next_pts_ = 3000; // start at frame 1
   int frame_duration_ = 90000 / 30;
   using Clock = std::chrono::steady_clock;
-  std::chrono::time_point<Clock> stream_start_wall_;
 
-  std::optional<Clock::time_point> first_frame_time_;
+  int64_t first_frame_time_us = -1;
 
 public:
   FfmpegRtpPipeline(int width, int height, const char *url);
@@ -44,6 +43,7 @@ public:
   FfmpegRtpPipeline(const FfmpegRtpPipeline &) = delete;
   FfmpegRtpPipeline &operator=(const FfmpegRtpPipeline &) = delete;
   void write_packet(AVPacket *pkt);
-  void init_muxer(AVCodecContext *enc_ctx);
+  void probe_and_generate_sdp();
+  void init_muxer();
   void handle_frame(const cv::Mat &frame);
 };

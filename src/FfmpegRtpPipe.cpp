@@ -60,9 +60,6 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
   enc_frame_->width = width_;
   enc_frame_->height = height_;
 
-  // ret = av_frame_get_buffer(enc_frame_, 0);
-  // if (ret < 0)
-  //   throw std::runtime_error("av_frame_get_buffer: " + averr(ret));
   enc_frame_->format = enc_ctx_->pix_fmt;
   enc_frame_->width = width_;
   enc_frame_->height = height_;
@@ -71,6 +68,9 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
   enc_pkt_ = av_packet_alloc();
   if (!enc_pkt_)
     throw std::runtime_error("av_packet_alloc (encoder) failed");
+
+  // Probe encoder to generate a SDP
+  probe_and_generate_sdp();
 }
 
 void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
@@ -83,14 +83,13 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
     throw std::runtime_error("Image must be continuous");
 
   // ── Use actual wall-clock time for PTS ───────────────────────────────────
-  auto now = Clock::now();
-  if (!first_frame_time_) {
-    first_frame_time_ = now;
+  auto now_us = av_gettime();
+  if (first_frame_time_us < 0) {
+    first_frame_time_us = now_us;
   }
-  auto elapsed = now - first_frame_time_.value();
+  auto elapsed_us = now_us - first_frame_time_us;
   int64_t pts =
-      std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-  pts = pts * 90 / 1'000'000; // Convert microseconds to 90kHz clock
+      elapsed_us * 90 / 1'000'000; // Convert microseconds to 90kHz clock
 
   // ── 1. Point AVFrame directly at cv::Mat data (zero-copy) ────────────────
   enc_frame_->data[0] = bgr_image.data;
@@ -109,15 +108,7 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
     if (ret < 0)
       throw std::runtime_error("avcodec_receive_packet: " + averr(ret));
 
-    // enc_pkt_->pts = enc_pkt_->dts = enc_pkt_->pts;
-    // enc_pkt_->duration = frame_duration_;
     enc_pkt_->stream_index = 0;
-
-    if (!header_written_) {
-      init_muxer(enc_ctx_);
-      stream_start_wall_ = Clock::now();
-      header_written_ = true;
-    }
 
     write_packet(enc_pkt_);
     av_packet_unref(enc_pkt_);
@@ -148,7 +139,34 @@ FfmpegRtpPipeline::~FfmpegRtpPipeline() {
   }
 }
 
-void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx) {
+void FfmpegRtpPipeline::probe_and_generate_sdp() {
+  AVFrame *probe = av_frame_alloc();
+  probe->format = enc_ctx_->pix_fmt;
+  probe->width = width_;
+  probe->height = height_;
+  av_frame_get_buffer(probe, 0);
+  av_frame_make_writable(probe);
+  // zero-fill = black frame
+  memset(probe->data[0], 0, probe->linesize[0] * height_);
+  probe->pts = 0;
+
+  avcodec_send_frame(enc_ctx_, probe);
+  av_frame_free(&probe);
+
+  AVPacket *probe_pkt = av_packet_alloc();
+  if (avcodec_receive_packet(enc_ctx_, probe_pkt) == 0) {
+    init_muxer(); // extradata now populated
+    header_written_ = true;
+    write_packet(probe_pkt); // don't discard — it's a real keyframe
+    av_packet_unref(probe_pkt);
+  } else {
+    throw std::runtime_error("Failed to probe encoder for SDP generation: " +
+                             averr(AVERROR(EAGAIN)));
+  }
+  av_packet_free(&probe_pkt);
+}
+
+void FfmpegRtpPipeline::init_muxer() {
   // ── 1. Allocate output context ───────────────────────────────────────────
   int ret = avformat_alloc_output_context2(&oc_, nullptr, "rtp", url_.c_str());
   if (ret < 0 || !oc_)
@@ -159,7 +177,7 @@ void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx) {
   if (!st_)
     throw std::runtime_error("avformat_new_stream failed");
 
-  ret = avcodec_parameters_from_context(st_->codecpar, enc_ctx);
+  ret = avcodec_parameters_from_context(st_->codecpar, enc_ctx_);
   if (ret < 0)
     throw std::runtime_error("avcodec_parameters_from_context: " + averr(ret));
 
@@ -195,18 +213,6 @@ void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx) {
 }
 
 void FfmpegRtpPipeline::write_packet(AVPacket *pkt) {
-  // Convert this packet's PTS (in 90 kHz ticks) to a wall-clock deadline
-  // and sleep until we reach it. This prevents the RTP sender from blasting
-  // all packets instantly and overflowing the receiver's jitter buffer.
-  // {
-  //   const int64_t pts_us = pkt->pts * 1'000'000LL / 90'000LL;
-  //   const auto deadline =
-  //       stream_start_wall_ + std::chrono::microseconds(pts_us);
-  //   const auto now = Clock::now();
-  //   if (deadline > now)
-  //     std::this_thread::sleep_until(deadline);
-  // }
-
   // NAL type check for key-frame flag (skip start code)
   if (pkt->size >= 5) {
     int off = (pkt->data[2] == 1) ? 3 : 4;

@@ -139,6 +139,10 @@ FfmpegRtpPipeline::~FfmpegRtpPipeline() {
   }
 }
 
+/**
+ * A hack to get the encoder's extradata for SDP generation without needing to
+ * wait for a real camera frame by feeding a black image
+ */
 void FfmpegRtpPipeline::probe_and_generate_sdp() {
   AVFrame *probe = av_frame_alloc();
   probe->format = enc_ctx_->pix_fmt;
@@ -207,8 +211,7 @@ void FfmpegRtpPipeline::init_muxer() {
   {
     char sdp[4096] = {};
     av_sdp_create(&oc_, 1, sdp, sizeof(sdp));
-    std::ofstream output_file("stream_sdp.txt");
-    output_file << sdp;
+    sdp_ = std::string{sdp};
   }
 }
 

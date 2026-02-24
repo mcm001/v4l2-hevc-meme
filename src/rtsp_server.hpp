@@ -25,6 +25,19 @@ public:
 
   void Start();
 
+  /**
+   * Called by Java code, unsycnronized with all libuv EventLoop land code.
+   * TODO I need a mutex on m_ffmpegStreamer at the very least
+   */
+  bool PushFrame(const cv::Mat &frame) {
+    if (m_ffmpegStreamer) {
+      m_ffmpegStreamer->handle_frame(frame);
+      return true;
+    }
+
+    return false;
+  }
+
 private:
   void SendData(std::span<const wpi::uv::Buffer> bufs, bool closeAfter);
   void SendResponse(
@@ -47,5 +60,6 @@ private:
   int m_destPort;
 
   // TODO for now this is one pipeline per RTSP connection
+  // Created when we get a SETUP, destroyed when we get a TEARDOWN
   std::optional<FfmpegRtpPipeline> m_ffmpegStreamer;
 };

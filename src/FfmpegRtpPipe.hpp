@@ -37,6 +37,8 @@ private:
 
   int64_t first_frame_time_us = -1;
 
+  std::string sdp_;
+
 public:
   FfmpegRtpPipeline(int width, int height, const char *url);
   ~FfmpegRtpPipeline();
@@ -46,4 +48,6 @@ public:
   void probe_and_generate_sdp();
   void init_muxer();
   void handle_frame(const cv::Mat &frame);
+
+  std::string_view sdp() const { return sdp_; };
 };

@@ -144,30 +144,31 @@ FfmpegRtpPipeline::~FfmpegRtpPipeline() {
  * wait for a real camera frame by feeding a black image
  */
 void FfmpegRtpPipeline::probe_and_generate_sdp() {
-  AVFrame *probe = av_frame_alloc();
-  probe->format = enc_ctx_->pix_fmt;
-  probe->width = width_;
-  probe->height = height_;
-  av_frame_get_buffer(probe, 0);
-  av_frame_make_writable(probe);
-  // zero-fill = black frame
-  memset(probe->data[0], 0, probe->linesize[0] * height_);
-  probe->pts = 0;
+  init_muxer();
 
-  avcodec_send_frame(enc_ctx_, probe);
-  av_frame_free(&probe);
+  // AVFrame *probe = av_frame_alloc();
+  // probe->format = enc_ctx_->pix_fmt;
+  // probe->width = width_;
+  // probe->height = height_;
+  // av_frame_get_buffer(probe, 0);
+  // av_frame_make_writable(probe);
+  // // zero-fill = black frame
+  // memset(probe->data[0], 0, probe->linesize[0] * height_);
+  // probe->pts = 0;
 
-  AVPacket *probe_pkt = av_packet_alloc();
-  if (avcodec_receive_packet(enc_ctx_, probe_pkt) == 0) {
-    init_muxer(); // extradata now populated
-    header_written_ = true;
-    write_packet(probe_pkt); // don't discard — it's a real keyframe
-    av_packet_unref(probe_pkt);
-  } else {
-    throw std::runtime_error("Failed to probe encoder for SDP generation: " +
-                             averr(AVERROR(EAGAIN)));
-  }
-  av_packet_free(&probe_pkt);
+  // avcodec_send_frame(enc_ctx_, probe);
+  // av_frame_free(&probe);
+
+  // AVPacket *probe_pkt = av_packet_alloc();
+  // if (avcodec_receive_packet(enc_ctx_, probe_pkt) == 0) {
+  //   header_written_ = true;
+  //   write_packet(probe_pkt); // don't discard — it's a real keyframe
+  //   av_packet_unref(probe_pkt);
+  // } else {
+  //   throw std::runtime_error("Failed to probe encoder for SDP generation: " +
+  //                            averr(AVERROR(EAGAIN)));
+  // }
+  // av_packet_free(&probe_pkt);
 }
 
 void FfmpegRtpPipeline::init_muxer() {

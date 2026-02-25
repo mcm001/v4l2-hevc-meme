@@ -47,3 +47,5 @@ Encoder hevc_rkmpp [Rockchip MPP (Media Process Platform) HEVC encoder]:
     Supported hardware devices: rkmpp rkmpp drm
     Supported pixel formats: gray yuv420p yuv422p yuv444p nv12 nv21 nv16 nv24 yuyv422 yvyu422 uyvy422 rgb24 bgr24 rgba rgb0 bgra bgr0 argb 0rgb abgr 0bgr drm_prime
 ```
+
+Test with VLC via `rtsp://192.168.0.102:5801/lifecam`

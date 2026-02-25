@@ -36,7 +36,7 @@ void StartRtspServerLoop() {
       auto conn = std::make_shared<RtspServerConnectionHandler>(stream);
       stream->SetData(conn);
 
-      srv->closed.connect([conn](auto &&...) { 
+      srv->end.connect([conn](auto &&...) { 
         std::fputs("Erasing this...\n", stderr); 
         std::remove_if(rtsp_client_tcp_connections.begin(),
                                 rtsp_client_tcp_connections.end(),

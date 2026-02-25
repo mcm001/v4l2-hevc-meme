@@ -110,6 +110,7 @@ add_executable(hevc_meme
     src/main.cpp
     src/FfmpegRtpPipe.cpp
     src/rtsp_server.cpp
+    src/RtspClientsMap.cpp
 )
 
 target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH})

@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <memory>
 
+#include "RtspClientsMap.hpp"
 #include <format>
 #include <span>
 #include <wpi/SmallVector.h>
@@ -30,17 +31,20 @@
 
 namespace uv = wpi::uv;
 
-static std::string DUMMY_SDP = R"(v=0
-o=- 0 0 IN IP4 127.0.0.1
-s=No Name
-c=IN IP4 10.0.0.4
-t=0 0
-a=tool:libavformat 60.16.100
-m=video 18888 RTP/AVP 96
-b=AS:2000
-a=rtpmap:96 H265/90000
-a=fmtp:96 sprop-vps=QAEMAf//AWAAAAMAgAAAAwAAAwB4vAk=; sprop-sps=QgEBAWAAAAMAgAAAAwAAAwB4oAPAgBDljb5JMpgEAAADAAQAAAMAeCA=; sprop-pps=RAHA88BNkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=)";
+// Serve this DUMMY_SDP, a generic H265 SDP which relies on SPS/VPS/PPS
+// transmitted in-band in the RTP stream
+static std::string DUMMY_SDP =
+    "v=0\r\n"
+    "o=- 0 0 IN IP4 127.0.0.1\r\n"
+    "s=No Name\r\n"
+    "c=IN IP4 0.0.0.0\r\n" // overridden by SETUP/PLAY anyway
+    "t=0 0\r\n"
+    "m=video 0 RTP/AVP 96\r\n" // port 0 = unicast placeholder
+    "a=rtpmap:96 H265/90000\r\n"
+    "a=control:trackID=0\r\n"; // needed by some clients to SETUP the right
+                               // track
 
+// TODO this is a huge hack. And does not work. At all
 static int TOTALLY_RANDOM_SRC_PORT = 18923;
 
 // From HttpServerConnection.cpp
@@ -115,6 +119,34 @@ RtspServerConnectionHandler::cseqFromRequest(const std::string_view request) {
   return std::string{request.substr(cseqPos, cseqEnd - cseqPos)};
 }
 
+void RtspServerConnectionHandler::HandleSetup(std::string_view request,
+                                              const std::string &cseq) {
+
+  m_session = "12345678"; // TODO: generate something random
+
+  if (!ExtractSetupDest(request)) {
+    SendResponse(400, "Bad Request", cseq, {});
+    return;
+  }
+
+  std::string transport = std::format(
+      "RTP/AVP;unicast;client_port={}-{};server_port={}-{}", m_destPort,
+      m_destPort + 1, TOTALLY_RANDOM_SRC_PORT, TOTALLY_RANDOM_SRC_PORT + 1);
+
+  auto info = GetCameraStreamInfo(m_streamPath);
+  if (!info) {
+    SendResponse(404, "Not Found", cseq, {});
+    return;
+  }
+
+  // Time to make our stream!
+  m_ffmpegStreamer.emplace(info->width, info->height,
+                           std::format("rtp://{}:{}", m_destIp, m_destPort));
+
+  SendResponse(200, "OK", cseq,
+               {{"Session", m_session}, {"Transport", transport}});
+}
+
 /**
  * Extract the destination IP and port from a SETUP request's Transport
  * header, if present.
@@ -166,6 +198,13 @@ bool RtspServerConnectionHandler::ExtractSetupDest(
     }
   }
 
+  // Extract path from the first line, which is something like "SETUP
+  // rtsp://127.0.0.1:5801/lifecam/ RTSP/1.0". May or may not have a trailing /
+  {
+    // TODO implement me
+    m_streamPath = "lifecam";
+  }
+
   return true;
 }
 
@@ -187,16 +226,7 @@ void RtspServerConnectionHandler::HandleRequest(
                  DUMMY_SDP);
     break;
   case RtspState::SETUP: {
-    m_session = "12345678"; // TODO: generate something random
-
-    ExtractSetupDest(request);
-
-    std::string transport = std::format(
-        "RTP/AVP;unicast;client_port={}-{};server_port={}-{}", m_destPort,
-        m_destPort + 1, TOTALLY_RANDOM_SRC_PORT, TOTALLY_RANDOM_SRC_PORT + 1);
-
-    SendResponse(200, "OK", cseq,
-                 {{"Session", m_session}, {"Transport", transport}});
+    HandleSetup(request, cseq);
     break;
   }
   case RtspState::PLAY:

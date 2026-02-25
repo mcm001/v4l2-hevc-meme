@@ -39,11 +39,16 @@ private:
 
   std::string sdp_;
 
+  int m_localBindPort;
+
 public:
-  FfmpegRtpPipeline(int width, int height, const char *url);
+  FfmpegRtpPipeline(int width, int height, std::string urlA);
   ~FfmpegRtpPipeline();
+
+  // No copy or move
   FfmpegRtpPipeline(const FfmpegRtpPipeline &) = delete;
   FfmpegRtpPipeline &operator=(const FfmpegRtpPipeline &) = delete;
+
   void write_packet(AVPacket *pkt);
   void probe_and_generate_sdp();
   void init_muxer();

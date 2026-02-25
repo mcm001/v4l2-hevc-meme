@@ -17,7 +17,7 @@ static std::string averr(int ret) {
   return {buf};
 }
 
-FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, const char *url)
+FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
     : width_(width), height_(height), url_(url) {
 
   const int BITRATE = 2'000'000; // bps
@@ -212,6 +212,13 @@ void FfmpegRtpPipeline::init_muxer() {
     char sdp[4096] = {};
     av_sdp_create(&oc_, 1, sdp, sizeof(sdp));
     sdp_ = std::string{sdp};
+
+    // Extract local bind port from SDP
+    auto m_pos = sdp_.find("m=video ");
+    if (m_pos != std::string::npos) {
+      m_pos += 8; // skip "m=video "
+      m_localBindPort = static_cast<uint16_t>(std::stoi(sdp_.substr(m_pos)));
+    }
   }
 }
 

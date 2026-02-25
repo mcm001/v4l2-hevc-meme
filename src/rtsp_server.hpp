@@ -29,8 +29,8 @@ public:
    * Called by Java code, unsycnronized with all libuv EventLoop land code.
    * TODO I need a mutex on m_ffmpegStreamer at the very least
    */
-  bool PushFrame(const cv::Mat &frame) {
-    if (m_ffmpegStreamer) {
+  bool OfferFrame(std::string_view stream_name, const cv::Mat &frame) {
+    if (m_ffmpegStreamer && stream_name == m_streamPath) {
       m_ffmpegStreamer->handle_frame(frame);
       return true;
     }
@@ -48,6 +48,8 @@ private:
   RtspState requestTypeFromRequest(const std::string_view request);
   std::string cseqFromRequest(const std::string_view request);
   void HandleRequest(const std::string_view request);
+
+  void HandleSetup(std::string_view request, const std::string &cseq);
   bool ExtractSetupDest(const std::string_view request);
 
   std::shared_ptr<wpi::uv::Tcp> m_stream;
@@ -55,6 +57,10 @@ private:
 
   RtspState state = RtspState::OPTIONS;
   std::string m_session;
+
+  // RTSP URL path, e.g. "camera1". This is what we use to match against the
+  // stream
+  std::string m_streamPath;
 
   std::string m_destIp;
   int m_destPort;

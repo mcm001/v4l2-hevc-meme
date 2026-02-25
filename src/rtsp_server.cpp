@@ -55,6 +55,7 @@ void RtspServerConnectionHandler::SendData(std::span<const uv::Buffer> bufs,
       buf.Deallocate();
     }
     if (closeAfter) {
+      std::puts("Closing stream after sending response...\n");
       stream->Close();
     }
   });
@@ -63,7 +64,7 @@ void RtspServerConnectionHandler::SendData(std::span<const uv::Buffer> bufs,
 void RtspServerConnectionHandler::SendResponse(
     int code, const std::string &reason, const std::string &cseq,
     std::initializer_list<std::pair<std::string, std::string>> headers,
-    const std::string &body) {
+    const std::string &body, bool closeAfter) {
   std::string resp = "RTSP/1.0 " + std::to_string(code) + " " + reason + "\r\n";
   resp += "CSeq: " + cseq + "\r\n";
   for (auto &[k, v] : headers)
@@ -77,7 +78,7 @@ void RtspServerConnectionHandler::SendResponse(
   wpi::SmallVector<uv::Buffer, 4> toSend;
   wpi::raw_uv_ostream os{toSend, 4096};
   os << resp;
-  SendData(os.bufs(), false);
+  SendData(os.bufs(), closeAfter);
 }
 
 void RtspServerConnectionHandler::SendError(int code, const std::string &reason,
@@ -130,8 +131,8 @@ void RtspServerConnectionHandler::HandleSetup(std::string_view request,
   }
 
   std::string transport = std::format(
-      "RTP/AVP;unicast;client_port={}-{};server_port={}-{}", m_destPort,
-      m_destPort + 1, TOTALLY_RANDOM_SRC_PORT, TOTALLY_RANDOM_SRC_PORT + 1);
+      "RTP/AVP;unicast;client_port={}-{}", m_destPort,
+      m_destPort + 1);
 
   auto info = GetCameraStreamInfo(m_streamPath);
   if (!info) {
@@ -165,8 +166,13 @@ bool RtspServerConnectionHandler::ExtractSetupDest(
 
     // Only accept RTP/AVP/unicast
     auto rtpPos = request.find("RTP/AVP;unicast", transportPos);
-    if (rtpPos == std::string_view::npos)
-      return false;
+    if (rtpPos == std::string_view::npos) {
+      // ffplay does this. this feels fragile.
+      rtpPos = request.find("RTP/AVP/UDP;unicast", transportPos);
+      if (rtpPos == std::string_view::npos) {
+        return false;
+      }
+    }
 
     // Find client_port=, and convert to integer
     static const std::string clientPortStr = "client_port=";
@@ -238,10 +244,8 @@ void RtspServerConnectionHandler::HandleRequest(
   case RtspState::TEARDOWN:
     m_ffmpegStreamer.reset();
 
-    SendResponse(200, "OK", cseq, {{"Session", m_session}}, "");
-
-    // and close ourself, since the client is done
-    m_stream->Close();
+    // Send OK, and close after
+    SendResponse(200, "OK", cseq, {{"Session", m_session}}, "", true);
     break;
   default:
     break;

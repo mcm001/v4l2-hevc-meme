@@ -43,7 +43,7 @@ private:
   void SendResponse(
       int code, const std::string &reason, const std::string &cseq,
       std::initializer_list<std::pair<std::string, std::string>> headers,
-      const std::string &body = "");
+      const std::string &body = "", bool closeAfter = false);
   void SendError(int code, const std::string &reason, const std::string &cseq);
   RtspState requestTypeFromRequest(const std::string_view request);
   std::string cseqFromRequest(const std::string_view request);

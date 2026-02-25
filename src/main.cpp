@@ -55,8 +55,6 @@ void RunLifecam() {
 
     int frame_idx = 0;
 
-    FfmpegRtpPipeline pipeline(width, height, "rtp://192.168.0.32:18888");
-
     while (run) {
       auto t_start = Clock::now();
 
@@ -90,9 +88,6 @@ void RunLifecam() {
 
       auto t_conv = Clock::now();
       PublishCameraFrame("lifecam", frame);
-
-      // also do our own thing
-      pipeline.handle_frame(frame);
 
       const double conv_ms = ms_since(t_conv);
 

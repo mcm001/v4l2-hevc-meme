@@ -128,3 +128,5 @@ target_link_libraries(
         wpiutil
         # yuv
 )
+
+target_compile_options(hevc_meme PRIVATE -O2 -g)

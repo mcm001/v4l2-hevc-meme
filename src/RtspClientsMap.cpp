@@ -36,6 +36,13 @@ void StartRtspServerLoop() {
       auto conn = std::make_shared<RtspServerConnectionHandler>(stream);
       stream->SetData(conn);
 
+      srv->closed.connect([conn](auto &&...) { 
+        std::fputs("Erasing this...\n", stderr); 
+        std::remove_if(rtsp_client_tcp_connections.begin(),
+                                rtsp_client_tcp_connections.end(),
+                                [conn](const auto &maybe) { return conn == maybe; });
+      });
+
       rtsp_client_tcp_connections.push_back(conn);
 
       conn->Start();
@@ -45,9 +52,6 @@ void StartRtspServerLoop() {
     std::fputs("Listening on port 5801\n", stderr);
   });
 }
-
-void NotifyPotentialStream(const std::string &stream_name, int width,
-                           int height, int fps) {}
 
 bool PublishCameraFrame(const std::string &stream_name, const cv::Mat &frame) {
   // Always record for GetCameraStreamInfo

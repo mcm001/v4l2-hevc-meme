@@ -87,8 +87,8 @@ void RunLifecam() {
       const double grab_ms = ms_since(t_start);
 
       auto t_conv = Clock::now();
-
       PublishCameraFrame("lifecam", frame);
+
       const double conv_ms = ms_since(t_conv);
 
       if (frame_idx % 30 == 0) std::cout << frame_idx << "," << grab_ms << "," << conv_ms << "\n";

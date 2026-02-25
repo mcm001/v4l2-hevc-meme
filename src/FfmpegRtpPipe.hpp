@@ -34,25 +34,16 @@ private:
   int next_pts_ = 3000; // start at frame 1
   int frame_duration_ = 90000 / 30;
   using Clock = std::chrono::steady_clock;
+  std::chrono::time_point<Clock> stream_start_wall_;
 
-  int64_t first_frame_time_us = -1;
-
-  std::string sdp_;
-
-  int m_localBindPort;
+  std::optional<Clock::time_point> first_frame_time_;
 
 public:
-  FfmpegRtpPipeline(int width, int height, std::string urlA);
+  FfmpegRtpPipeline(int width, int height, std::string url);
   ~FfmpegRtpPipeline();
-
-  // No copy or move
   FfmpegRtpPipeline(const FfmpegRtpPipeline &) = delete;
   FfmpegRtpPipeline &operator=(const FfmpegRtpPipeline &) = delete;
-
   void write_packet(AVPacket *pkt);
-  void probe_and_generate_sdp();
-  void init_muxer();
+  void init_muxer(AVCodecContext *enc_ctx);
   void handle_frame(const cv::Mat &frame);
-
-  std::string_view sdp() const { return sdp_; };
 };

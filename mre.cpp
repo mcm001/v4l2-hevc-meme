@@ -11,6 +11,8 @@ std::vector<std::shared_ptr<wpi::uv::Tcp>> tcp_connections;
 wpi::EventLoopRunner loop;
 
 int main() {
+  using namespace std::literals::chrono_literals;
+
   loop.ExecSync([](wpi::uv::Loop &loop) {
     auto tcp = wpi::uv::Tcp::Create(loop);
     tcp->Bind("", 5801);
@@ -20,8 +22,18 @@ int main() {
       if (!stream)
         return;
 
+      // TODO upstream converts to ms, but libuv wants seconds
+      stream->SetKeepAlive(true, 1ms);
+
       std::fputs("Got a connection\n", stderr);
       tcp_connections.push_back(stream);
+
+      stream->closed.connect([] { std::fputs("Stream closed\n", stderr); });
+      stream->end.connect([] { std::fputs("Stream ended\n", stderr); });
+      stream->error.connect(
+          [](wpi::uv::Error err) { std::fputs("Stream error\n", stderr); });
+
+      stream->StartRead();
     });
 
     tcp->Listen();

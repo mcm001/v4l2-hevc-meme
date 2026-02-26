@@ -7,6 +7,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_library(V4L2_LIBRARY NAMES v4l2 libv4l2 HINTS /usr/lib /usr/local/lib)
 find_library(V4L1_LIBRARY NAMES v4l1 libv4l1 HINTS /usr/lib /usr/local/lib)
 
+add_compile_options(-O0 -g)
+
 set(OPENCV_YEAR "frc2025")
 set(OPENCV_VERSION "4.10.0-3")
 set(OPENCV_ARCH "linuxarm64")
@@ -129,8 +131,5 @@ target_link_libraries(
         # yuv
 )
 
-target_compile_options(hevc_meme PRIVATE -O2 -g)
-
 add_executable(mre mre.cpp)
 target_link_libraries(mre PRIVATE wpinet wpiutil)
-target_compile_options(mre PRIVATE -O2 -g)

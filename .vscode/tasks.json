@@ -7,7 +7,7 @@
             "command": "cmake",
             "args": [
                 "--build",
-                "build", "-j", "-t", "hevc_meme"
+                "build", "-j", "4", "-t", "hevc_meme"
             ],
             "problemMatcher": [],
             "detail": "compiler: cmake",

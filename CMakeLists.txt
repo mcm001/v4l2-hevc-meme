@@ -7,7 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_library(V4L2_LIBRARY NAMES v4l2 libv4l2 HINTS /usr/lib /usr/local/lib)
 find_library(V4L1_LIBRARY NAMES v4l1 libv4l1 HINTS /usr/lib /usr/local/lib)
 
-add_compile_options(-O0 -g)
+add_compile_options(-O2 -g)
 
 set(OPENCV_YEAR "frc2025")
 set(OPENCV_VERSION "4.10.0-3")

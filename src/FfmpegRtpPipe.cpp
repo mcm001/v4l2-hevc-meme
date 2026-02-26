@@ -74,6 +74,8 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
 }
 
 void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
+  // printf("handle_frame: %dx%d\n", bgr_image.cols, bgr_image.rows);
+
   if (bgr_image.cols != width_ || bgr_image.rows != height_)
     throw std::runtime_error(
         "Image dimensions do not match pipeline configuration");
@@ -146,6 +148,8 @@ FfmpegRtpPipeline::~FfmpegRtpPipeline() {
       avio_closep(&oc_->pb);
     avformat_free_context(oc_);
   }
+
+  printf("FfmpegRtpPipeline destroyed\n");
 }
 
 void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx) {

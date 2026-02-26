@@ -23,6 +23,8 @@ class RtspServerConnectionHandler
 public:
   explicit RtspServerConnectionHandler(std::shared_ptr<wpi::uv::Tcp> stream);
 
+  ~RtspServerConnectionHandler() = default;
+
   void Start();
 
   /**

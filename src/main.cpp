@@ -77,7 +77,7 @@ void RunLifecam() {
       time_t time_t_now = seconds;
       struct tm *tm_info = localtime(&time_t_now);
       char timestamp_str[32];
-      snprintf(timestamp_str, sizeof(timestamp_str), "%02d:%02d:%02d.%03lld",
+      snprintf(timestamp_str, sizeof(timestamp_str), "%02d:%02d:%02d.%03ld",
                tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, ms);
 
       cv::putText(frame, timestamp_str, cv::Point(10, 30),

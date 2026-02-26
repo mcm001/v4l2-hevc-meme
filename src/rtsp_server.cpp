@@ -15,7 +15,7 @@
 #include <memory>
 
 #include "RtspClientsMap.hpp"
-#include <format>
+// #include <format>
 #include <span>
 #include <wpi/SmallVector.h>
 #include <wpi/print.h>
@@ -141,8 +141,8 @@ void RtspServerConnectionHandler::HandleSetup(std::string_view request,
     return;
   }
 
-  std::string transport = std::format("RTP/AVP;unicast;client_port={}-{}",
-                                      m_destPort, m_destPort + 1);
+  std::string transport = "RTP/AVP;unicast;client_port=" + std::to_string(m_destPort) +
+                          "-" + std::to_string(m_destPort + 1);
 
   auto info = GetCameraStreamInfo(m_streamPath);
   if (!info) {
@@ -152,7 +152,7 @@ void RtspServerConnectionHandler::HandleSetup(std::string_view request,
 
   // Time to make our stream!
   m_ffmpegStreamer.emplace(info->width, info->height,
-                           std::format("rtp://{}:{}", m_destIp, m_destPort));
+                           std::string("rtp://") + m_destIp + ":" + std::to_string(m_destPort));
 
   SendResponse(200, "OK", cseq,
                {{"Session", m_session}, {"Transport", transport}});

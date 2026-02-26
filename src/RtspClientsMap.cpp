@@ -3,6 +3,7 @@
 // the WPILib BSD license file in the root directory of this project.
 
 #include "RtspClientsMap.hpp"
+#include <wpi/print.h>
 
 // All camera streams we know about, keyed by unique name
 std::map<std::string, CameraStreamInfo> all_camera_streams;
@@ -21,6 +22,7 @@ wpi::EventLoopRunner loop;
  */
 void StartRtspServerLoop() {
   using namespace wpi;
+  using namespace std::literals::chrono_literals;
 
   // Block until the TCP socket is ready to go
   loop.ExecSync([](uv::Loop &loop) {
@@ -32,14 +34,30 @@ void StartRtspServerLoop() {
       if (!stream)
         return;
 
+      // TODO upstream converts to ms, but libuv wants seconds
+      stream->SetKeepAlive(true, 1ms);
+
       std::fputs("Got a connection\n", stderr);
       auto conn = std::make_shared<RtspServerConnectionHandler>(stream);
 
-      srv->end.connect([conn](auto &&...) {
-        std::fputs("Erasing this...\n", stderr);
-        std::remove_if(rtsp_client_tcp_connections.begin(),
-                       rtsp_client_tcp_connections.end(),
-                       [conn](const auto &maybe) { return conn == maybe; });
+      // on clised/end/error, erase from global list
+      auto erase_client = [conn]() {
+        wpi::print(stderr, "Client disconnected\n");
+
+        auto it = std::find(rtsp_client_tcp_connections.begin(),
+                            rtsp_client_tcp_connections.end(), conn);
+        if (it != rtsp_client_tcp_connections.end()) {
+          rtsp_client_tcp_connections.erase(it);
+        }
+
+        wpi::print("{} clients remaining\n",
+                   rtsp_client_tcp_connections.size());
+      };
+      stream->closed.connect(erase_client);
+      stream->end.connect(erase_client);
+      stream->error.connect([erase_client](wpi::uv::Error err) {
+        wpi::print(stderr, "Stream error: {}\n", err.str());
+        erase_client();
       });
 
       rtsp_client_tcp_connections.push_back(conn);

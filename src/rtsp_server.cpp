@@ -275,13 +275,12 @@ void RtspServerConnectionHandler::Start() {
     }
   });
 
-  m_stream->end.connect([self]() {
-    wpi::print(stderr, "Client disconnected (state={})\n",
-               static_cast<int>(self->state));
-    self->m_stream->Close(); // does this actually close the TCP socket??
-
-    self->m_ffmpegStreamer.reset();
-  });
+  // m_stream->end.connect([self]() {
+  //   wpi::print(stderr, "Client disconnected (state={})\n",
+  //              static_cast<int>(self->state));
+  //   self->m_stream->Close(); // does this actually close the TCP socket??
+  //   self->m_ffmpegStreamer.reset();
+  // });
 
   m_stream->StartRead();
 }

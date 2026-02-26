@@ -130,9 +130,8 @@ void RtspServerConnectionHandler::HandleSetup(std::string_view request,
     return;
   }
 
-  std::string transport = std::format(
-      "RTP/AVP;unicast;client_port={}-{}", m_destPort,
-      m_destPort + 1);
+  std::string transport = std::format("RTP/AVP;unicast;client_port={}-{}",
+                                      m_destPort, m_destPort + 1);
 
   auto info = GetCameraStreamInfo(m_streamPath);
   if (!info) {
@@ -280,7 +279,7 @@ void RtspServerConnectionHandler::Start() {
     wpi::print(stderr, "Client disconnected (state={})\n",
                static_cast<int>(self->state));
     self->m_stream->Close(); // does this actually close the TCP socket??
-    
+
     self->m_ffmpegStreamer.reset();
   });
 

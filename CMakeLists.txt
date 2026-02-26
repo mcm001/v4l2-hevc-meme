@@ -130,3 +130,7 @@ target_link_libraries(
 )
 
 target_compile_options(hevc_meme PRIVATE -O2 -g)
+
+add_executable(mre mre.cpp)
+target_link_libraries(mre PRIVATE wpinet wpiutil)
+target_compile_options(mre PRIVATE -O2 -g)

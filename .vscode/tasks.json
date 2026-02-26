@@ -7,7 +7,7 @@
             "command": "cmake",
             "args": [
                 "--build",
-                "build", "-j", "4"
+                "build", "-j", "-t", "mre"
             ],
             "problemMatcher": [],
             "detail": "compiler: cmake",

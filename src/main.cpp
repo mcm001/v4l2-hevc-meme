@@ -4,12 +4,12 @@
 
 #include "RtspClientsMap.hpp"
 #include "rtsp_server.hpp"
-#include <wpinet/EventLoopRunner.h>
 #include <chrono>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
+#include <wpinet/EventLoopRunner.h>
 
 using Clock = std::chrono::steady_clock;
 using TimePoint = std::chrono::time_point<Clock>;
@@ -31,12 +31,12 @@ void RunLifecam() {
   try {
     cv::Mat frame;
 
-    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
+    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
     cap.set(cv::CAP_PROP_FPS, 30);
     cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 3); // ae enabled
-    cap.set(cv::CAP_PROP_BRIGHTNESS, 0); // balanced
+    cap.set(cv::CAP_PROP_BRIGHTNESS, 0);    // balanced
 
     while (!cap.isOpened()) {
       std::cout << "Waiting for camera to open..." << std::endl;
@@ -91,7 +91,8 @@ void RunLifecam() {
 
       const double conv_ms = ms_since(t_conv);
 
-      if (frame_idx % 30 == 0) std::cout << frame_idx << "," << grab_ms << "," << conv_ms << "\n";
+      if (frame_idx % 30 == 0)
+        std::cout << frame_idx << "," << grab_ms << "," << conv_ms << "\n";
 
       ++frame_idx;
     }

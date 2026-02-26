@@ -40,10 +40,16 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
   enc_ctx_->bit_rate = BITRATE;
   enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
 
+  // enc_ctx_->profile = FF_PROFILE_HEVC_MAIN; // already defaults to this. seems to have no effect
+
   // Try to reduce internal buffering
   AVDictionary *opts = nullptr;
   av_dict_set(&opts, "preset", "ultrafast", 0);
   av_dict_set_int(&opts, "refs", 1, 0);
+
+  // These two options seem to make things a lot slower
+  // av_dict_set(&opts, "profile", "main", 0);
+  // av_dict_set(&opts, "tier", "main", 0);
 
   // ── 3. Open the encoder ───────────────────────────────────────────────────
   int ret = avcodec_open2(enc_ctx_, codec, nullptr);

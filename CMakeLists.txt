@@ -118,6 +118,7 @@ add_executable(hevc_meme
 target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH})
 # hack :(
 target_include_directories(yuv PUBLIC $<BUILD_INTERFACE:${libyuv_SOURCE_DIR}/include>)
+target_compile_options(hevc_meme PRIVATE -O0 -g)
 
 target_link_libraries(
     hevc_meme

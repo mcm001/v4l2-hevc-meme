@@ -11,6 +11,7 @@ extern "C" {
 #include <libavutil/error.h>
 #include <libavutil/opt.h>
 #include <libavutil/time.h>
+#include <libavformat/avio.h>
 } // extern "C"
 
 #include <chrono>

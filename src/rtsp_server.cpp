@@ -26,7 +26,7 @@
 #include <wpinet/uv/Loop.h>
 #include <wpinet/uv/Tcp.h>
 #include <wpinet/uv/util.h>
-
+#include <regex>
 #include "rtsp_server.hpp"
 
 namespace uv = wpi::uv;
@@ -44,8 +44,19 @@ static std::string DUMMY_SDP =
     "a=control:trackID=0\r\n"; // needed by some clients to SETUP the right
                                // track
 
-// TODO this is a huge hack. And does not work. At all
-static int TOTALLY_RANDOM_SRC_PORT = 18923;
+
+static std::string extractCameraName(const std::string& rtspRequest) {
+static const std::regex pattern(
+    R"(^\w+\s+rtsp://[^/]+/([^/?/\s]+)(?:[/\s?][^\r\n]*)?\s+RTSP/\d+\.\d+)",
+    std::regex::ECMAScript
+);
+
+    std::smatch match;
+    if (std::regex_search(rtspRequest, match, pattern)) {
+        return match[1].str();
+    }
+    return {};
+}
 
 // From HttpServerConnection.cpp
 void RtspServerConnectionHandler::SendData(std::span<const uv::Buffer> bufs,
@@ -206,8 +217,7 @@ bool RtspServerConnectionHandler::ExtractSetupDest(
   // Extract path from the first line, which is something like "SETUP
   // rtsp://127.0.0.1:5801/lifecam/ RTSP/1.0". May or may not have a trailing /
   {
-    // TODO implement me
-    m_streamPath = "lifecam";
+    m_streamPath = extractCameraName(std::string{request});
   }
 
   return true;

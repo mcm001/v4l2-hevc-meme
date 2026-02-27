@@ -105,6 +105,9 @@ def systemArch = getCurrentArch()
 model {
   components {
     RtspServer(JniNativeLibrarySpec) {
+      enableCheckTask true
+      javaCompileTasks << compileJava
+
       sources {
         cpp {
           source {

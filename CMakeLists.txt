@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.25)
 project(hevc-meme C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -7,23 +7,74 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_library(V4L2_LIBRARY NAMES v4l2 libv4l2 HINTS /usr/lib /usr/local/lib)
 find_library(V4L1_LIBRARY NAMES v4l1 libv4l1 HINTS /usr/lib /usr/local/lib)
 
+include(FetchContent)
+
 add_compile_options(-O2 -g)
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(OPENCV_YEAR "frc2025")
 set(OPENCV_VERSION "4.10.0-3")
+
 # set(OPENCV_ARCH "linuxarm64")
-set(OPENCV_ARCH "linuxx86-64")
+# set(OPENCV_ARCH "linuxx86-64")
 # also valid: windowsx86-64
+
+# type can be "", "debug", "static", or "staticdebug"
+set(BUILD_TYPE "")
+
+if (NOT BUILD_ARCH)
+  set(BUILD_ARCH "linuxx86-64")
+endif()
 
 # type can be "", "debug", "static", or "staticdebug"
 set(OPENCV_TYPE "")
 
+function(FETCH_MAVEN repository package libname libversion libpath includepath)
+  message("Repo ${repository} package ${package} libname ${libname} version ${libversion}")
+
+  FetchContent_Declare(
+      "${libname}_lib"
+      URL https://frcmaven.wpi.edu/artifactory/${repository}/edu/wpi/first/${package}/${libname}-cpp/${libversion}/${libname}-cpp-${libversion}-${BUILD_ARCH}${BUILD_TYPE}.zip
+  )
+  FetchContent_MakeAvailable("${libname}_lib")
+
+
+  FetchContent_Declare(
+      "${libname}_header"
+      URL https://frcmaven.wpi.edu/artifactory/${repository}/edu/wpi/first/${package}/${libname}-cpp/${libversion}/${libname}-cpp-${libversion}-headers.zip
+  )
+  FetchContent_MakeAvailable("${libname}_header")
+
+  file(GLOB_RECURSE lib_glob
+    "${${libname}_lib_SOURCE_DIR}/**/*.lib"
+    "${${libname}_lib_SOURCE_DIR}/**/*.so*"
+    "${${libname}_lib_SOURCE_DIR}/**/*.dylib*"
+    "${${libname}_lib_SOURCE_DIR}/**/*.a"
+  )
+
+  set(${includepath} ${${libname}_header_SOURCE_DIR})
+  set(${libpath} ${lib_glob})
+
+  message("Outputting to ${libpath}: ${lib_glob}")
+  message("and ${includepath}: ${${libname}_header_SOURCE_DIR}")
+
+  return(PROPAGATE ${includepath} ${libpath})
+endfunction()
+
+FETCH_MAVEN(release wpinet wpinet 2026.2.1
+  wpinet_libs
+  wpinet_include_path
+)
+FETCH_MAVEN(release wpiutil wpiutil 2026.2.1
+  wpiutil_libs
+  wpiutil_include_path
+)
+
 # Download opencv, and save the path
-include(FetchContent)
 FetchContent_Declare(
     opencv_lib
     URL
-        https://frcmaven.wpi.edu/artifactory/release/edu/wpi/first/thirdparty/${OPENCV_YEAR}/opencv/opencv-cpp/${OPENCV_VERSION}/opencv-cpp-${OPENCV_VERSION}-${OPENCV_ARCH}${OPENCV_TYPE}.zip
+        https://frcmaven.wpi.edu/artifactory/release/edu/wpi/first/thirdparty/${OPENCV_YEAR}/opencv/opencv-cpp/${OPENCV_VERSION}/opencv-cpp-${OPENCV_VERSION}-${BUILD_ARCH}${OPENCV_TYPE}.zip
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(opencv_lib)
@@ -37,31 +88,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(opencv_header)
 
-include(FetchContent)
-
-# --- wpilibsuite/allwpilib (wpinet + wpiutil) ---
-FetchContent_Declare(
-    allwpilib
-    GIT_REPOSITORY https://github.com/wpilibsuite/allwpilib.git
-    GIT_TAG        main  # pin to a tag/commit for reproducibility
-    GIT_SHALLOW    TRUE
-)
-
-# Disable everything in allwpilib you don't need
-set(WITH_JAVA        OFF CACHE BOOL "" FORCE)
-set(WITH_CSCORE      OFF CACHE BOOL "" FORCE)
-set(WITH_NTCORE      ON CACHE BOOL "" FORCE)
-set(WITH_WPIMATH     OFF CACHE BOOL "" FORCE)
-set(WITH_WPILIB     OFF CACHE BOOL "" FORCE)
-set(WITH_WPIUNITS    OFF CACHE BOOL "" FORCE)
-set(WITH_SIMULATION_MODULES OFF CACHE BOOL "" FORCE)
-set(WITH_TESTS       OFF CACHE BOOL "" FORCE)
-set(WITH_GUI         OFF CACHE BOOL "" FORCE)
-set(WITH_PROTOBUF    OFF CACHE BOOL "" FORCE)
-set(WITH_BENCHMARK    OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(allwpilib)
-
 # --- libyuv ---
 FetchContent_Declare(
     libyuv
@@ -69,11 +95,7 @@ FetchContent_Declare(
     GIT_TAG        main  # pin to a commit hash for stability
     GIT_SHALLOW    TRUE
 )
-
-# libyuv optionally depends on libjpeg; disable if you don't want it
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libyuv)
-
 
 # This probably doesn't work great with shared libraries, but I don't care about those right now
 file(
@@ -124,13 +146,15 @@ target_link_libraries(
     hevc_meme
     PUBLIC
         ${V4L2_LIBRARIES}
-        # OpenCL::OpenCL
         ${OPENCV_LIB_PATH}
         PkgConfig::LIBAV
-        wpinet
-        wpiutil
-        # yuv
+        ${wpinet_libs}
+        ${wpiutil_libs}
+)
+target_include_directories(hevc_meme SYSTEM PUBLIC
+  ${wpinet_include_path}
+  ${wpiutil_include_path}
 )
 
-add_executable(mre mre.cpp)
-target_link_libraries(mre PRIVATE wpinet wpiutil)
+# add_executable(mre mre.cpp)
+# target_link_libraries(mre PRIVATE wpinet wpiutil)

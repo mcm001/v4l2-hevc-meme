@@ -11,8 +11,8 @@ add_compile_options(-O2 -g)
 
 set(OPENCV_YEAR "frc2025")
 set(OPENCV_VERSION "4.10.0-3")
-set(OPENCV_ARCH "linuxarm64")
-# set(OPENCV_ARCH "linuxx86-64")
+# set(OPENCV_ARCH "linuxarm64")
+set(OPENCV_ARCH "linuxx86-64")
 # also valid: windowsx86-64
 
 # type can be "", "debug", "static", or "staticdebug"

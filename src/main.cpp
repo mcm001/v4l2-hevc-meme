@@ -24,9 +24,10 @@ void stop_main(int s) {
 }
 
 void RunLifecam() {
-  cv::VideoCapture cap("/dev/v4l/by-id/"
-                       "usb-Arducam_Technology_Co.__Ltd._Arducam_OV2311_USB_"
-                       "Camera_UC621-video-index0");
+  cv::VideoCapture cap("/dev/video0");
+  // cv::VideoCapture cap("/dev/v4l/by-id/"
+  //                      "usb-Arducam_Technology_Co.__Ltd._Arducam_OV2311_USB_"
+  //                      "Camera_UC621-video-index0");
 
   try {
     cv::Mat frame;

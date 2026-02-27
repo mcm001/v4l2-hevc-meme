@@ -39,6 +39,7 @@ private:
 
   int64_t first_frame_time_us = -1;
 
+  cv::Mat scratch;
 public:
   FfmpegRtpPipeline(int width, int height, std::string url);
   ~FfmpegRtpPipeline();

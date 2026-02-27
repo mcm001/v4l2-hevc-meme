@@ -10,6 +10,10 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <opencv2/imgproc/imgproc.hpp>
+
+enum class EncoderType { HEVC_RKMPP, HEVC_NVENC };
+const EncoderType ENCODER_TYPE = EncoderType::HEVC_NVENC;
 
 static std::string averr(int ret) {
   char buf[AV_ERROR_MAX_STRING_SIZE] = {};
@@ -22,34 +26,50 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
 
   const int BITRATE = 2'000'000; // bps
 
-  // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
-  const AVCodec *codec = avcodec_find_encoder_by_name("hevc_rkmpp");
-  if (!codec)
-    throw std::runtime_error("hevc_rkmpp encoder not found");
+  AVCodec *codec {nullptr};
+  if (ENCODER_TYPE == EncoderType::HEVC_NVENC) {
+    // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
+    codec = avcodec_find_encoder_by_name("hevc_nvenc");
+    if (!codec)
+      throw std::runtime_error("hevc_rkmpp encoder not found");
 
-  enc_ctx_ = avcodec_alloc_context3(codec);
-  if (!enc_ctx_)
-    throw std::runtime_error("avcodec_alloc_context3 failed");
+    enc_ctx_ = avcodec_alloc_context3(codec);
+    if (!enc_ctx_)
+      throw std::runtime_error("avcodec_alloc_context3 failed");
 
-  // ── 2. Configure encoder parameters ──────────────────────────────────────
-  enc_ctx_->width = width_;
-  enc_ctx_->height = height_;
-  enc_ctx_->time_base = {1, 90000};
-  enc_ctx_->framerate = {30, 1};        // 30 FPS
-  enc_ctx_->pix_fmt = AV_PIX_FMT_BGR24; // hevc_rkmpp supports BGR24 directly
-  enc_ctx_->bit_rate = BITRATE;
-  enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
+    // ── 2. Configure encoder parameters ──────────────────────────────────────
+    enc_ctx_->width = width_;
+    enc_ctx_->height = height_;
+    enc_ctx_->time_base = {1, 90000};
+    enc_ctx_->framerate = {30, 1};        // 30 FPS
+    enc_ctx_->pix_fmt = AV_PIX_FMT_BGR0; // closest we can get to opencv's BGR
+    enc_ctx_->bit_rate = BITRATE;
+    enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
+  } else {
+    // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
+    codec = avcodec_find_encoder_by_name("hevc_rkmpp");
+    if (!codec)
+      throw std::runtime_error("hevc_rkmpp encoder not found");
 
-  // enc_ctx_->profile = FF_PROFILE_HEVC_MAIN; // already defaults to this. seems to have no effect
+    enc_ctx_ = avcodec_alloc_context3(codec);
+    if (!enc_ctx_)
+      throw std::runtime_error("avcodec_alloc_context3 failed");
+
+    // ── 2. Configure encoder parameters ──────────────────────────────────────
+    enc_ctx_->width = width_;
+    enc_ctx_->height = height_;
+    enc_ctx_->time_base = {1, 90000};
+    enc_ctx_->framerate = {30, 1};        // 30 FPS
+    enc_ctx_->pix_fmt = AV_PIX_FMT_BGR24; // hevc_rkmpp supports BGR24 directly
+    enc_ctx_->bit_rate = BITRATE;
+    enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
+  }
+
 
   // Try to reduce internal buffering
   AVDictionary *opts = nullptr;
   av_dict_set(&opts, "preset", "ultrafast", 0);
   av_dict_set_int(&opts, "refs", 1, 0);
-
-  // These two options seem to make things a lot slower
-  // av_dict_set(&opts, "profile", "main", 0);
-  // av_dict_set(&opts, "tier", "main", 0);
 
   // ── 3. Open the encoder ───────────────────────────────────────────────────
   int ret = avcodec_open2(enc_ctx_, codec, nullptr);
@@ -80,7 +100,17 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
 }
 
 void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
-  // printf("handle_frame: %dx%d\n", bgr_image.cols, bgr_image.rows);
+  int type;
+  int pixelWidthBytes;
+
+  if (ENCODER_TYPE == EncoderType::HEVC_NVENC) {
+    // NVEnc wants BGR0
+    type = CV_8UC4;
+    pixelWidthBytes = 4;
+  } else {
+    type = CV_8UC3;
+    pixelWidthBytes = 3;
+  }
 
   if (bgr_image.cols != width_ || bgr_image.rows != height_)
     throw std::runtime_error(
@@ -89,6 +119,16 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
     throw std::runtime_error("Image must be CV_8UC3 (BGR)");
   if (!bgr_image.isContinuous())
     throw std::runtime_error("Image must be continuous");
+
+  // If nvenc, convert
+  if (ENCODER_TYPE == EncoderType::HEVC_NVENC) {
+    if (scratch.empty()) {
+      scratch.create(height_, width_, type);
+    }
+    cv::cvtColor(bgr_image, scratch, cv::COLOR_BGR2BGRA);
+  } else {
+    scratch = bgr_image;
+  }
 
   // ── Use actual wall-clock time for PTS ───────────────────────────────────
   auto now_us = av_gettime();
@@ -101,8 +141,8 @@ void FfmpegRtpPipeline::handle_frame(const cv::Mat &bgr_image) {
       elapsed_us * 90 / 1'000'000; // Convert microseconds to 90kHz clock
 
   // ── 1. Point AVFrame directly at cv::Mat data (zero-copy) ────────────────
-  enc_frame_->data[0] = bgr_image.data;
-  enc_frame_->linesize[0] = width_ * 3; // BGR24 stride
+  enc_frame_->data[0] = scratch.data;
+  enc_frame_->linesize[0] = width_ * pixelWidthBytes; // BGR24 stride
   enc_frame_->pts = pts;
 
   // ── 2. Send frame to encoder ──────────────────────────────────────────────

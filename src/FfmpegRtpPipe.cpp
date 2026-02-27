@@ -56,11 +56,22 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
 
   // Try to reduce internal buffering
   AVDictionary *opts = nullptr;
-  av_dict_set(&opts, "preset", "ultrafast", 0);
-  av_dict_set_int(&opts, "refs", 1, 0);
+  
+  if (ENCODER_TYPE == EncoderType::HEVC_NVENC) {
+    av_dict_set(&opts, "preset", "p1", 0);        // Low latency preset
+    av_dict_set(&opts, "tune", "ull", 0);          // Ultra low latency tuning
+    av_dict_set(&opts, "rc", "cbr", 0);            // Constant bitrate
+    av_dict_set(&opts, "zerolatency", "1", 0);     // No reordering delay
+    av_dict_set(&opts, "delay", "0", 0);           // Minimize output delay
+    av_dict_set(&opts, "strict_gop", "1", 0);      // Prevent GOP fluctuations
+    av_dict_set(&opts, "forced-idr", "1", 0);      // Force keyframes as IDR
+  } else if (ENCODER_TYPE == EncoderType::HEVC_RKMPP) {
+    av_dict_set(&opts, "preset", "ultrafast", 0);
+    av_dict_set_int(&opts, "refs", 1, 0);
+  }
 
   // ── 3. Open the encoder ───────────────────────────────────────────────────
-  int ret = avcodec_open2(enc_ctx_, codec, nullptr);
+  int ret = avcodec_open2(enc_ctx_, codec, &opts);
   av_dict_free(&opts);
   if (ret < 0)
     throw std::runtime_error("avcodec_open2: " + averr(ret));

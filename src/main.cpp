@@ -10,6 +10,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 #include <wpinet/EventLoopRunner.h>
+#include <opencv2/highgui/highgui.hpp>
 
 using Clock = std::chrono::steady_clock;
 using TimePoint = std::chrono::time_point<Clock>;
@@ -36,8 +37,12 @@ void RunLifecam() {
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
     cap.set(cv::CAP_PROP_FPS, 30);
-    cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 3); // ae enabled
-    cap.set(cv::CAP_PROP_BRIGHTNESS, 0);    // balanced
+
+    cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 1); // ae enabled
+    cap.set(cv::CAP_PROP_EXPOSURE, 400); // ae enabled
+    cap.set(cv::CAP_PROP_BRIGHTNESS, 150);    // balanced
+    cap.set(cv::CAP_PROP_GAIN, 6);    // balanced
+    cap.set(cv::CAP_PROP_CONTRAST, 32);    // balanced
 
     while (!cap.isOpened()) {
       std::cout << "Waiting for camera to open..." << std::endl;
@@ -59,8 +64,8 @@ void RunLifecam() {
     while (run) {
       auto t_start = Clock::now();
 
-      // cap >> frame;
-      frame = cv::imread("/home/matt/Downloads/robots.png", cv::IMREAD_COLOR);
+      cap >> frame;
+      // frame = cv::imread("/home/matt/Downloads/robots.png", cv::IMREAD_COLOR);
 
       if (frame.empty()) {
         std::cerr << "Failed to grab frame" << std::endl;
@@ -96,11 +101,10 @@ void RunLifecam() {
 
       auto t_conv = Clock::now();
       PublishCameraFrame("lifecam", frame);
-
       const double conv_ms = ms_since(t_conv);
 
-      if (frame_idx % 30 == 0)
-        std::cout << frame_idx << "," << grab_ms << "," << conv_ms << "," << frame.cols << "x" << frame.rows << "\n";
+      // if (frame_idx % 30 == 0)
+        std::cout << timestamp_str << "," << grab_ms << "," << conv_ms << "," << frame.cols << "x" << frame.rows << "\n";
 
       ++frame_idx;
     }

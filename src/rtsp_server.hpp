@@ -1,12 +1,14 @@
 // Copyright (c) PhotonVision contributors.
 // Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// the GNU General Public License Version 3 in the root directory of this
+// project.
 
 #pragma once
 
 #include "FfmpegRtpPipe.hpp"
 #include <memory>
 #include <optional>
+#include <string>
 #include <wpinet/uv/Loop.h>
 #include <wpinet/uv/Tcp.h>
 

@@ -22,50 +22,62 @@ set(OPENCV_VERSION "4.10.0-3")
 # type can be "", "debug", "static", or "staticdebug"
 set(BUILD_TYPE "")
 
-if (NOT BUILD_ARCH)
-  set(BUILD_ARCH "linuxx86-64")
+if(NOT BUILD_ARCH)
+    set(BUILD_ARCH "linuxx86-64")
 endif()
 
 # type can be "", "debug", "static", or "staticdebug"
 set(OPENCV_TYPE "")
 
-function(FETCH_MAVEN repository package libname libversion libpath includepath)
-  message("Repo ${repository} package ${package} libname ${libname} version ${libversion}")
+function(
+    FETCH_MAVEN
+    repository
+    package
+    libname
+    libversion
+    libpath
+    includepath
+)
+    message(
+        "Repo ${repository} package ${package} libname ${libname} version ${libversion}"
+    )
 
-  FetchContent_Declare(
-      "${libname}_lib"
-      URL https://frcmaven.wpi.edu/artifactory/${repository}/edu/wpi/first/${package}/${libname}-cpp/${libversion}/${libname}-cpp-${libversion}-${BUILD_ARCH}${BUILD_TYPE}.zip
-  )
-  FetchContent_MakeAvailable("${libname}_lib")
+    FetchContent_Declare(
+        "${libname}_lib"
+        URL
+            https://frcmaven.wpi.edu/artifactory/${repository}/edu/wpi/first/${package}/${libname}-cpp/${libversion}/${libname}-cpp-${libversion}-${BUILD_ARCH}${BUILD_TYPE}.zip
+    )
+    FetchContent_MakeAvailable("${libname}_lib")
 
+    FetchContent_Declare(
+        "${libname}_header"
+        URL
+            https://frcmaven.wpi.edu/artifactory/${repository}/edu/wpi/first/${package}/${libname}-cpp/${libversion}/${libname}-cpp-${libversion}-headers.zip
+    )
+    FetchContent_MakeAvailable("${libname}_header")
 
-  FetchContent_Declare(
-      "${libname}_header"
-      URL https://frcmaven.wpi.edu/artifactory/${repository}/edu/wpi/first/${package}/${libname}-cpp/${libversion}/${libname}-cpp-${libversion}-headers.zip
-  )
-  FetchContent_MakeAvailable("${libname}_header")
+    file(
+        GLOB_RECURSE lib_glob
+        "${${libname}_lib_SOURCE_DIR}/**/*.lib"
+        "${${libname}_lib_SOURCE_DIR}/**/*.so*"
+        "${${libname}_lib_SOURCE_DIR}/**/*.dylib*"
+        "${${libname}_lib_SOURCE_DIR}/**/*.a"
+    )
 
-  file(GLOB_RECURSE lib_glob
-    "${${libname}_lib_SOURCE_DIR}/**/*.lib"
-    "${${libname}_lib_SOURCE_DIR}/**/*.so*"
-    "${${libname}_lib_SOURCE_DIR}/**/*.dylib*"
-    "${${libname}_lib_SOURCE_DIR}/**/*.a"
-  )
+    set(${includepath} ${${libname}_header_SOURCE_DIR})
+    set(${libpath} ${lib_glob})
 
-  set(${includepath} ${${libname}_header_SOURCE_DIR})
-  set(${libpath} ${lib_glob})
+    message("Outputting to ${libpath}: ${lib_glob}")
+    message("and ${includepath}: ${${libname}_header_SOURCE_DIR}")
 
-  message("Outputting to ${libpath}: ${lib_glob}")
-  message("and ${includepath}: ${${libname}_header_SOURCE_DIR}")
-
-  return(PROPAGATE ${includepath} ${libpath})
+    return(PROPAGATE ${includepath} ${libpath})
 endfunction()
 
-FETCH_MAVEN(release wpinet wpinet 2026.2.1
+fetch_maven(release wpinet wpinet 2026.2.1
   wpinet_libs
   wpinet_include_path
 )
-FETCH_MAVEN(release wpiutil wpiutil 2026.2.1
+fetch_maven(release wpiutil wpiutil 2026.2.1
   wpiutil_libs
   wpiutil_include_path
 )
@@ -92,8 +104,9 @@ FetchContent_MakeAvailable(opencv_header)
 FetchContent_Declare(
     libyuv
     GIT_REPOSITORY https://chromium.googlesource.com/libyuv/libyuv
-    GIT_TAG        main  # pin to a commit hash for stability
-    GIT_SHALLOW    TRUE
+    GIT_TAG
+        main # pin to a commit hash for stability
+    GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(libyuv)
 
@@ -130,7 +143,8 @@ pkg_check_modules(
     libavutil
 )
 
-add_executable(hevc_meme
+add_executable(
+    hevc_meme
     src/main.cpp
     src/FfmpegRtpPipe.cpp
     src/rtsp_server.cpp
@@ -139,7 +153,10 @@ add_executable(hevc_meme
 
 target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH})
 # hack :(
-target_include_directories(yuv PUBLIC $<BUILD_INTERFACE:${libyuv_SOURCE_DIR}/include>)
+target_include_directories(
+    yuv
+    PUBLIC $<BUILD_INTERFACE:${libyuv_SOURCE_DIR}/include>
+)
 target_compile_options(hevc_meme PRIVATE -O0 -g)
 
 target_link_libraries(
@@ -151,9 +168,10 @@ target_link_libraries(
         ${wpinet_libs}
         ${wpiutil_libs}
 )
-target_include_directories(hevc_meme SYSTEM PUBLIC
-  ${wpinet_include_path}
-  ${wpiutil_include_path}
+target_include_directories(
+    hevc_meme
+    SYSTEM
+    PUBLIC ${wpinet_include_path} ${wpiutil_include_path}
 )
 
 # add_executable(mre mre.cpp)

@@ -1,8 +1,14 @@
 // Copyright (c) PhotonVision contributors.
 // Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// the GNU General Public License Version 3 in the root directory of this
+// project.
 
 #include "RtspClientsMap.hpp"
+#include <cstdio>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 #include <wpi/print.h>
 
 // All camera streams we know about, keyed by unique name

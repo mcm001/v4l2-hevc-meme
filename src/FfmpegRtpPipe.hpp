@@ -1,6 +1,7 @@
 // Copyright (c) PhotonVision contributors.
 // Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// the GNU General Public License Version 3 in the root directory of this
+// project.
 
 #pragma once
 
@@ -8,10 +9,10 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavcodec/bsf.h>
 #include <libavformat/avformat.h>
+#include <libavformat/avio.h>
 #include <libavutil/error.h>
 #include <libavutil/opt.h>
 #include <libavutil/time.h>
-#include <libavformat/avio.h>
 } // extern "C"
 
 #include <chrono>
@@ -40,6 +41,7 @@ private:
   int64_t first_frame_time_us = -1;
 
   cv::Mat scratch;
+
 public:
   FfmpegRtpPipeline(int width, int height, std::string url);
   ~FfmpegRtpPipeline();

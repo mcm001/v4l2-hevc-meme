@@ -68,8 +68,8 @@ ffmpeg version 4.4.2-0ubuntu0.22.04.1 Copyright (c) 2000-2021 the FFmpeg develop
   libswresample   3.  9.100 /  3.  9.100
   libpostproc    55.  9.100 / 55.  9.100
 Encoder hevc_nvenc [NVIDIA NVENC hevc encoder]:
-    General capabilities: dr1 delay hardware 
+    General capabilities: dr1 delay hardware
     Threading capabilities: none
-    Supported hardware devices: cuda cuda 
+    Supported hardware devices: cuda cuda
     Supported pixel formats: yuv420p nv12 p010le yuv444p p016le yuv444p16le bgr0 rgb0 cuda
 ```

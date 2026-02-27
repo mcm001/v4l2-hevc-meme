@@ -1,16 +1,17 @@
 // Copyright (c) PhotonVision contributors.
 // Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// the GNU General Public License Version 3 in the root directory of this
+// project.
 
 #include "FfmpegRtpPipe.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <opencv2/imgproc/imgproc.hpp>
 
 enum class EncoderType { HEVC_RKMPP, HEVC_NVENC };
 const EncoderType ENCODER_TYPE = EncoderType::HEVC_NVENC;
@@ -49,22 +50,22 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
   enc_ctx_->width = width_;
   enc_ctx_->height = height_;
   enc_ctx_->time_base = {1, 90000};
-  enc_ctx_->framerate = {30, 1};        // 30 FPS
-  enc_ctx_->pix_fmt = pix_fmt; 
+  enc_ctx_->framerate = {30, 1}; // 30 FPS
+  enc_ctx_->pix_fmt = pix_fmt;
   enc_ctx_->bit_rate = BITRATE;
   enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
 
   // Try to reduce internal buffering
   AVDictionary *opts = nullptr;
-  
+
   if (ENCODER_TYPE == EncoderType::HEVC_NVENC) {
-    av_dict_set(&opts, "preset", "p1", 0);        // Low latency preset
-    av_dict_set(&opts, "tune", "ull", 0);          // Ultra low latency tuning
-    av_dict_set(&opts, "rc", "cbr", 0);            // Constant bitrate
-    av_dict_set(&opts, "zerolatency", "1", 0);     // No reordering delay
-    av_dict_set(&opts, "delay", "0", 0);           // Minimize output delay
-    av_dict_set(&opts, "strict_gop", "1", 0);      // Prevent GOP fluctuations
-    av_dict_set(&opts, "forced-idr", "1", 0);      // Force keyframes as IDR
+    av_dict_set(&opts, "preset", "p1", 0);     // Low latency preset
+    av_dict_set(&opts, "tune", "ull", 0);      // Ultra low latency tuning
+    av_dict_set(&opts, "rc", "cbr", 0);        // Constant bitrate
+    av_dict_set(&opts, "zerolatency", "1", 0); // No reordering delay
+    av_dict_set(&opts, "delay", "0", 0);       // Minimize output delay
+    av_dict_set(&opts, "strict_gop", "1", 0);  // Prevent GOP fluctuations
+    av_dict_set(&opts, "forced-idr", "1", 0);  // Force keyframes as IDR
   } else if (ENCODER_TYPE == EncoderType::HEVC_RKMPP) {
     av_dict_set(&opts, "preset", "ultrafast", 0);
     av_dict_set_int(&opts, "refs", 1, 0);

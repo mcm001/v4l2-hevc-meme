@@ -1,6 +1,7 @@
 // Copyright (c) PhotonVision contributors.
 // Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// the GNU General Public License Version 3 in the root directory of this
+// project.
 
 // Adapted from
 // https://github.com/wpilibsuite/allwpilib/blob/9cd933fa1494a4e486102b17040d9cf9201b75cd/wpinet/examples/webserver/webserver.cpp#L68
@@ -15,8 +16,11 @@
 #include <memory>
 
 #include "RtspClientsMap.hpp"
-// #include <format>
+#include "rtsp_server.hpp"
+#include <random>
+#include <regex>
 #include <span>
+#include <string>
 #include <wpi/SmallVector.h>
 #include <wpi/print.h>
 #include <wpinet/EventLoopRunner.h>
@@ -26,10 +30,16 @@
 #include <wpinet/uv/Loop.h>
 #include <wpinet/uv/Tcp.h>
 #include <wpinet/uv/util.h>
-#include <regex>
-#include "rtsp_server.hpp"
 
 namespace uv = wpi::uv;
+
+std::string GenerateSessionID() {
+  std::random_device rd;
+  std::mt19937_64 gen(rd());
+  std::uniform_int_distribution<uint64_t> dis;
+
+  return std::to_string(dis(gen));
+}
 
 // Serve this DUMMY_SDP, a generic H265 SDP which relies on SPS/VPS/PPS
 // transmitted in-band in the RTP stream
@@ -44,18 +54,16 @@ static std::string DUMMY_SDP =
     "a=control:trackID=0\r\n"; // needed by some clients to SETUP the right
                                // track
 
+static std::string extractCameraName(const std::string &rtspRequest) {
+  static const std::regex pattern(
+      R"(^\w+\s+rtsp://[^/]+/([^/?/\s]+)(?:[/\s?][^\r\n]*)?\s+RTSP/\d+\.\d+)",
+      std::regex::ECMAScript);
 
-static std::string extractCameraName(const std::string& rtspRequest) {
-static const std::regex pattern(
-    R"(^\w+\s+rtsp://[^/]+/([^/?/\s]+)(?:[/\s?][^\r\n]*)?\s+RTSP/\d+\.\d+)",
-    std::regex::ECMAScript
-);
-
-    std::smatch match;
-    if (std::regex_search(rtspRequest, match, pattern)) {
-        return match[1].str();
-    }
-    return {};
+  std::smatch match;
+  if (std::regex_search(rtspRequest, match, pattern)) {
+    return match[1].str();
+  }
+  return {};
 }
 
 // From HttpServerConnection.cpp
@@ -133,16 +141,16 @@ RtspServerConnectionHandler::cseqFromRequest(const std::string_view request) {
 
 void RtspServerConnectionHandler::HandleSetup(std::string_view request,
                                               const std::string &cseq) {
-
-  m_session = "12345678"; // TODO: generate something random
+  m_session = GenerateSessionID();
 
   if (!ExtractSetupDest(request)) {
     SendResponse(400, "Bad Request", cseq, {});
     return;
   }
 
-  std::string transport = "RTP/AVP;unicast;client_port=" + std::to_string(m_destPort) +
-                          "-" + std::to_string(m_destPort + 1);
+  std::string transport =
+      "RTP/AVP;unicast;client_port=" + std::to_string(m_destPort) + "-" +
+      std::to_string(m_destPort + 1);
 
   auto info = GetCameraStreamInfo(m_streamPath);
   if (!info) {
@@ -152,7 +160,8 @@ void RtspServerConnectionHandler::HandleSetup(std::string_view request,
 
   // Time to make our stream!
   m_ffmpegStreamer.emplace(info->width, info->height,
-                           std::string("rtp://") + m_destIp + ":" + std::to_string(m_destPort));
+                           std::string("rtp://") + m_destIp + ":" +
+                               std::to_string(m_destPort));
 
   SendResponse(200, "OK", cseq,
                {{"Session", m_session}, {"Transport", transport}});

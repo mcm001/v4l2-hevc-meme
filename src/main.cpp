@@ -1,16 +1,18 @@
 // Copyright (c) PhotonVision contributors.
 // Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+// the GNU General Public License Version 3 in the root directory of this
+// project.
 
 #include "RtspClientsMap.hpp"
 #include "rtsp_server.hpp"
 #include <chrono>
+#include <cstdio>
 #include <iostream>
+#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 #include <wpinet/EventLoopRunner.h>
-#include <opencv2/highgui/highgui.hpp>
 
 using Clock = std::chrono::steady_clock;
 using TimePoint = std::chrono::time_point<Clock>;
@@ -39,10 +41,10 @@ void RunLifecam() {
     cap.set(cv::CAP_PROP_FPS, 30);
 
     cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 1); // ae enabled
-    cap.set(cv::CAP_PROP_EXPOSURE, 400); // ae enabled
-    cap.set(cv::CAP_PROP_BRIGHTNESS, 150);    // balanced
-    cap.set(cv::CAP_PROP_GAIN, 6);    // balanced
-    cap.set(cv::CAP_PROP_CONTRAST, 32);    // balanced
+    cap.set(cv::CAP_PROP_EXPOSURE, 400);    // ae enabled
+    cap.set(cv::CAP_PROP_BRIGHTNESS, 150);  // balanced
+    cap.set(cv::CAP_PROP_GAIN, 6);          // balanced
+    cap.set(cv::CAP_PROP_CONTRAST, 32);     // balanced
 
     while (!cap.isOpened()) {
       std::cout << "Waiting for camera to open..." << std::endl;
@@ -65,7 +67,8 @@ void RunLifecam() {
       auto t_start = Clock::now();
 
       cap >> frame;
-      // frame = cv::imread("/home/matt/Downloads/robots.png", cv::IMREAD_COLOR);
+      // frame = cv::imread("/home/matt/Downloads/robots.png",
+      // cv::IMREAD_COLOR);
 
       if (frame.empty()) {
         std::cerr << "Failed to grab frame" << std::endl;
@@ -103,8 +106,9 @@ void RunLifecam() {
       PublishCameraFrame("lifecam", frame);
       const double conv_ms = ms_since(t_conv);
 
-      // if (frame_idx % 30 == 0)
-        std::cout << timestamp_str << "," << grab_ms << "," << conv_ms << "," << frame.cols << "x" << frame.rows << "\n";
+      if (frame_idx % 30 == 0)
+        std::cout << timestamp_str << "," << grab_ms << "," << conv_ms << ","
+                  << frame.cols << "x" << frame.rows << "\n";
 
       ++frame_idx;
     }

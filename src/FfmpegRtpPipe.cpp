@@ -25,46 +25,34 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
     : width_(width), height_(height), url_(url) {
 
   const int BITRATE = 2'000'000; // bps
+  std::string encoder_name;
+  AVPixelFormat pix_fmt;
 
-  AVCodec *codec {nullptr};
   if (ENCODER_TYPE == EncoderType::HEVC_NVENC) {
-    // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
-    codec = avcodec_find_encoder_by_name("hevc_nvenc");
-    if (!codec)
-      throw std::runtime_error("hevc_rkmpp encoder not found");
-
-    enc_ctx_ = avcodec_alloc_context3(codec);
-    if (!enc_ctx_)
-      throw std::runtime_error("avcodec_alloc_context3 failed");
-
-    // ── 2. Configure encoder parameters ──────────────────────────────────────
-    enc_ctx_->width = width_;
-    enc_ctx_->height = height_;
-    enc_ctx_->time_base = {1, 90000};
-    enc_ctx_->framerate = {30, 1};        // 30 FPS
-    enc_ctx_->pix_fmt = AV_PIX_FMT_BGR0; // closest we can get to opencv's BGR
-    enc_ctx_->bit_rate = BITRATE;
-    enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
+    encoder_name = "hevc_nvenc";
+    pix_fmt = AV_PIX_FMT_BGR0;
   } else {
-    // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
-    codec = avcodec_find_encoder_by_name("hevc_rkmpp");
-    if (!codec)
-      throw std::runtime_error("hevc_rkmpp encoder not found");
-
-    enc_ctx_ = avcodec_alloc_context3(codec);
-    if (!enc_ctx_)
-      throw std::runtime_error("avcodec_alloc_context3 failed");
-
-    // ── 2. Configure encoder parameters ──────────────────────────────────────
-    enc_ctx_->width = width_;
-    enc_ctx_->height = height_;
-    enc_ctx_->time_base = {1, 90000};
-    enc_ctx_->framerate = {30, 1};        // 30 FPS
-    enc_ctx_->pix_fmt = AV_PIX_FMT_BGR24; // hevc_rkmpp supports BGR24 directly
-    enc_ctx_->bit_rate = BITRATE;
-    enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
+    encoder_name = "hevc_rkmpp";
+    pix_fmt = AV_PIX_FMT_BGR24;
   }
 
+  // ── 1. Find and allocate the hevc_rkmpp encoder ──────────────────────────
+  AVCodec *codec = avcodec_find_encoder_by_name(encoder_name.c_str());
+  if (!codec)
+    throw std::runtime_error(encoder_name + " encoder not found");
+
+  enc_ctx_ = avcodec_alloc_context3(codec);
+  if (!enc_ctx_)
+    throw std::runtime_error("avcodec_alloc_context3 failed");
+
+  // ── 2. Configure encoder parameters ──────────────────────────────────────
+  enc_ctx_->width = width_;
+  enc_ctx_->height = height_;
+  enc_ctx_->time_base = {1, 90000};
+  enc_ctx_->framerate = {30, 1};        // 30 FPS
+  enc_ctx_->pix_fmt = pix_fmt; 
+  enc_ctx_->bit_rate = BITRATE;
+  enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
 
   // Try to reduce internal buffering
   AVDictionary *opts = nullptr;

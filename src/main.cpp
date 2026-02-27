@@ -59,7 +59,8 @@ void RunLifecam() {
     while (run) {
       auto t_start = Clock::now();
 
-      cap >> frame;
+      // cap >> frame;
+      frame = cv::imread("/home/matt/Downloads/robots.png", cv::IMREAD_COLOR);
 
       if (frame.empty()) {
         std::cerr << "Failed to grab frame" << std::endl;
@@ -99,7 +100,7 @@ void RunLifecam() {
       const double conv_ms = ms_since(t_conv);
 
       if (frame_idx % 30 == 0)
-        std::cout << frame_idx << "," << grab_ms << "," << conv_ms << "\n";
+        std::cout << frame_idx << "," << grab_ms << "," << conv_ms << "," << frame.cols << "x" << frame.rows << "\n";
 
       ++frame_idx;
     }

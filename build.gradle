@@ -1,0 +1,180 @@
+import edu.wpi.first.toolchain.*
+
+plugins {
+  id 'cpp'
+  id "java"
+  id 'org.photonvision.tools.WpilibTools' version '2.3.1-photon'
+  id 'edu.wpi.first.NativeUtils' version '2026.0.1'
+  id "edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin" version "2020.2"
+  id "com.diffplug.spotless" version "8.1.0"
+  id 'edu.wpi.first.GradleJni' version '1.1.0'
+  id 'edu.wpi.first.GradleVsCode' version '2.1.0'
+}
+
+ext.wpilibVersion = "2026.+"
+
+allprojects {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+        maven { url = "https://maven.photonvision.org/repository/internal/" }
+    }
+    wpilibRepositories.addAllReleaseRepositories(it)
+    wpilibRepositories.addAllDevelopmentRepositories(it)
+}
+
+// Configure the version number.
+apply from: "versioningHelper.gradle"
+
+ext {
+    pubVersion = versionString
+    isDev = pubVersion.startsWith("dev")
+
+    wpilibVersion = "2026.1.1"
+    wpimathVersion = wpilibVersion
+    openCVversion = "4.10.0-3"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+apply from: 'config.gradle'
+
+dependencies {
+    // Junit
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.8.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
+
+    implementation wpilibTools.deps.wpilibJava("wpiutil")
+    testImplementation wpilibTools.deps.wpilibJava("cscore")
+
+    def javalinVersion = "6.7.0"
+    implementation "io.javalin:javalin:$javalinVersion"
+    implementation "org.slf4j:slf4j-simple:2.0.17"
+
+    implementation 'edu.wpi.first.thirdparty.frc2025.opencv:opencv-java:4.10.0-2'
+
+    testImplementation "com.fasterxml.jackson.core:jackson-annotations:2.19.2"
+    testImplementation "com.fasterxml.jackson.core:jackson-core:2.19.2"
+    testImplementation "com.fasterxml.jackson.core:jackson-databind:2.19.2"
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        outputs.upToDateWhen {false}
+        showStandardStreams = true
+    }
+}
+
+def nativeName = wpilibTools.platformMapper.platformPath
+// ext.outputsFolder = file("$buildDir/outputs")
+
+println("Building for $nativeName")
+
+// Set up exports properly
+nativeUtils {
+  exportsConfigs {
+    // Main library is just default empty. This will export everything
+    RtspServer {
+    }
+  }
+}
+
+
+ext.getCurrentArch = {
+    return NativePlatforms.desktop
+}
+
+def systemArch = getCurrentArch()
+model {
+  components {
+    RtspServer(JniNativeLibrarySpec) {
+      sources {
+        cpp {
+          source {
+            srcDirs 'src/main/native/cpp'
+            include '**/*.cpp'
+          }
+          exportedHeaders {
+            srcDirs 'src/main/native/include'
+          }
+        }
+        binaries.all {
+            linker.args "-lavformat", "-lavcodec", "-lavutil"
+        }
+      }
+
+        nativeUtils.useRequiredLibrary(it, 'wpinet_shared')
+        nativeUtils.useRequiredLibrary(it, 'wpiutil_shared')
+        nativeUtils.useRequiredLibrary(it, "opencv_shared")
+    }
+  }
+}
+
+spotless {
+    java {
+        target fileTree('.') {
+            include '**/*.java'
+            exclude '**/build/**', '**/build-*/**', '**/src/generated/**'
+        }
+        toggleOffOn()
+        googleJavaFormat()
+        indentWithTabs(2)
+        indentWithSpaces(4)
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    groovyGradle {
+        target fileTree('.') {
+            include '**/*.gradle'
+            exclude '**/build/**', '**/build-*/**'
+        }
+        greclipse()
+        indentWithSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    format 'misc', {
+        target fileTree('.') {
+            include '**/*.md', '**/.gitignore'
+            exclude '**/build/**', '**/build-*/**'
+        }
+        trimTrailingWhitespace()
+        indentWithSpaces(2)
+        endWithNewline()
+    }
+}
+
+def nativeConfigName = 'wpilibNatives'
+def nativeConfig = configurations.create(nativeConfigName)
+
+def nativeTasks = wpilibTools.createExtractionTasks {
+    configurationName = nativeConfigName
+}
+
+nativeTasks.addToSourceSetResources(sourceSets.test)
+
+nativeConfig.dependencies.add wpilibTools.deps.wpilib("wpinet")
+nativeConfig.dependencies.add wpilibTools.deps.wpilib("wpiutil")
+nativeConfig.dependencies.add wpilibTools.deps.wpilib("cscore")
+nativeConfig.dependencies.add wpilibTools.deps.wpilibOpenCv("frc2025", openCVversion)
+
+
+apply from: "publish.gradle"

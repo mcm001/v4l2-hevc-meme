@@ -7,11 +7,11 @@ def baseArtifactId = "ffmpeg_jni"
 def jniType = project.findProperty("PublishType") ?: "";
 println("Building with JNI publish type: " + jniType);
 
-task nativeLibraryJar(type: Jar, dependsOn: copyNativeLibrary) {
-    archiveClassifier = nativeName + jniType
-    from outputsFolder
-}
-build.dependsOn nativeLibraryJar
+// task nativeLibraryJar(type: Jar) {
+//     archiveClassifier = nativeName + jniType
+//     from outputsFolder
+// }
+// build.dependsOn nativeLibraryJar
 
 publishing {
     repositories {
@@ -32,13 +32,13 @@ publishing {
 
             from components.java
         }
-        mavenJNI(MavenPublication) {
-            groupId = artifactGroupId
-            artifactId = "${baseArtifactId}-jni"
-            version = pubVersion;
+        // mavenJNI(MavenPublication) {
+        //     groupId = artifactGroupId
+        //     artifactId = "${baseArtifactId}-jni"
+        //     version = pubVersion;
 
-            artifact nativeLibraryJar
-        }
+        //     artifact nativeLibraryJar
+        // }
     }
 }
 

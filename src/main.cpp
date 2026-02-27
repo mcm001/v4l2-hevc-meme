@@ -84,6 +84,12 @@ void RunLifecam() {
       cv::putText(frame, timestamp_str, cv::Point(10, 30),
                   cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2,
                   cv::LINE_AA);
+      cv::putText(frame, "This text is red", cv::Point(10, 70),
+                  cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 255), 2,
+                  cv::LINE_AA);
+      cv::putText(frame, "This text is blue", cv::Point(10, 100),
+                  cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 0, 0), 2,
+                  cv::LINE_AA);
 
       const double grab_ms = ms_since(t_start);
 

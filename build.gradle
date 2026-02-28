@@ -80,6 +80,8 @@ test {
         outputs.upToDateWhen {false}
         showStandardStreams = true
     }
+
+    // TODO test does not depend on C++ build??
 }
 
 def nativeName = wpilibTools.platformMapper.platformPath

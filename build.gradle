@@ -69,10 +69,10 @@ tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
 }
 
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
+// java {
+//     withJavadocJar()
+//     withSourcesJar()
+// }
 
 test {
     useJUnitPlatform()

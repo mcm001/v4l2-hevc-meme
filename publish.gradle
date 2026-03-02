@@ -139,13 +139,15 @@ model {
         def taskList = createComponentZipTasks($.components, ['RtspServer'], zipBaseName, Zip, project, includeStandardZipFormat)
 
         publications {
-            cpp(MavenPublication) {
+            jni(MavenPublication) {
+                artifact jar
+
                 taskList.each {
                     artifact it
                 }
                 artifact cppSourceZip
 
-                artifactId = "${baseArtifactId}-cpp"
+                artifactId = "${baseArtifactId}-jni"
                 groupId = artifactGroupId
                 version = pubVersion
             }

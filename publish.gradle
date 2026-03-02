@@ -1,26 +1,21 @@
 import org.apache.tools.ant.filters.FixCrLfFilter
 import org.apache.tools.ant.filters.ReplaceTokens
-
 apply plugin: 'maven-publish'
 
 ext.licenseFile = files("$rootDir/LICENSE.txt")
 
 def pubVersion = pubVersion
-
 def outputsFolder = file("$buildDir/outputs")
-
 def versionFile = file("$outputsFolder/version.txt")
 
 task outputVersions() {
     description = 'Prints the versions of wpilib to a file for use by the downstream packaging project'
     group = 'Build'
     outputs.files(versionFile)
-
     doFirst {
         buildDir.mkdir()
         outputsFolder.mkdir()
     }
-
     doLast {
         versionFile.write pubVersion
     }
@@ -47,19 +42,17 @@ ext.addTaskToCopyAllOutputs = { task ->
 
 def artifactGroupId = 'org.photonvision'
 def baseArtifactId = 'RtspServerJni'
-def driverZipBaseName = "_GROUP_com_vendor_frc_ID_${baseArtifactId}-driver_CLS"
 def zipBaseName = "_GROUP_com_vendor_frc_ID_${baseArtifactId}-cpp_CLS"
 def javaBaseName = "_GROUP_com_vendor_frc_ID_${baseArtifactId}-java_CLS"
+def nativeName = wpilibTools.platformMapper.wpilibClassifier
 
 task cppSourceZip(type: Zip) {
     destinationDirectory = outputsFolder
     archiveBaseName = zipBaseName
     archiveClassifier = "sources"
-
     from(licenseFile) {
         into '/'
     }
-
     from('src/main/native/cpp') {
         into '/'
     }
@@ -118,6 +111,23 @@ build.dependsOn outputJar
 
 libraryBuild.dependsOn build
 
+task copyNativeLibrary(type: Copy) {
+    dependsOn tasks.matching { it.name == 'linkRtspServerLinuxx86-64ReleaseSharedLibrary' }
+    from("build/libs/rtspServer/shared/linuxx86-64/release/") {
+        include "*.so", "*.dll", "*.dylib"
+    }
+    into outputsFolder
+}
+
+task nativeLibraryJar(type: Jar, dependsOn: copyNativeLibrary) {
+    archiveClassifier = nativeName
+    from outputsFolder
+    from licenseFile
+}
+
+build.dependsOn nativeLibraryJar
+addTaskToCopyAllOutputs(nativeLibraryJar)
+
 def releasesRepoUrl = "$buildDir/repos/releases"
 
 publishing {
@@ -126,38 +136,40 @@ publishing {
             url = releasesRepoUrl
         }
     }
+    publications {
+        mavenJNI(MavenPublication) {
+            groupId = artifactGroupId
+            artifactId = "${baseArtifactId}-jni"
+            version = pubVersion
+            artifact nativeLibraryJar
+        }
+        java(MavenPublication) {
+            artifact jar
+            artifact sourcesJar
+            artifact javadocJar
+            artifactId = "${baseArtifactId}-java"
+            groupId = artifactGroupId
+            version = pubVersion
+        }
+    }
 }
 
 task cleanReleaseRepo(type: Delete) {
     delete releasesRepoUrl
 }
 
-tasks.matching {it != cleanReleaseRepo}.all {it.dependsOn cleanReleaseRepo}
+tasks.matching { it != cleanReleaseRepo }.all { it.dependsOn cleanReleaseRepo }
 
 model {
     publishing {
         def taskList = createComponentZipTasks($.components, ['RtspServer'], zipBaseName, Zip, project, includeStandardZipFormat)
-
         publications {
-            jni(MavenPublication) {
-                artifact jar
-
+            cpp(MavenPublication) {
                 taskList.each {
                     artifact it
                 }
                 artifact cppSourceZip
-
-                artifactId = "${baseArtifactId}-jni"
-                groupId = artifactGroupId
-                version = pubVersion
-            }
-
-            java(MavenPublication) {
-                artifact jar
-                artifact sourcesJar
-                artifact javadocJar
-
-                artifactId = "${baseArtifactId}-java"
+                artifactId = "${baseArtifactId}-cpp"
                 groupId = artifactGroupId
                 version = pubVersion
             }

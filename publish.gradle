@@ -111,23 +111,6 @@ build.dependsOn outputJar
 
 libraryBuild.dependsOn build
 
-task copyNativeLibrary(type: Copy) {
-    dependsOn tasks.matching { it.name == 'linkRtspServerLinuxx86-64ReleaseSharedLibrary' }
-    from("build/libs/rtspServer/shared/linuxx86-64/release/") {
-        include "*.so", "*.dll", "*.dylib"
-    }
-    into outputsFolder
-}
-
-task nativeLibraryJar(type: Jar, dependsOn: copyNativeLibrary) {
-    archiveClassifier = nativeName
-    from outputsFolder
-    from licenseFile
-}
-
-build.dependsOn nativeLibraryJar
-addTaskToCopyAllOutputs(nativeLibraryJar)
-
 def releasesRepoUrl = "$buildDir/repos/releases"
 
 publishing {
@@ -137,12 +120,6 @@ publishing {
         }
     }
     publications {
-        mavenJNI(MavenPublication) {
-            groupId = artifactGroupId
-            artifactId = "${baseArtifactId}-jni"
-            version = pubVersion
-            artifact nativeLibraryJar
-        }
         java(MavenPublication) {
             artifact jar
             artifact sourcesJar
@@ -160,16 +137,35 @@ task cleanReleaseRepo(type: Delete) {
 
 tasks.matching { it != cleanReleaseRepo }.all { it.dependsOn cleanReleaseRepo }
 
+// Define nativeLibraryJar outside the model block
+task nativeLibraryJar(type: Jar) {
+    archiveClassifier = nativeName
+    destinationDirectory = outputsFolder
+    from licenseFile
+
+    build.dependsOn it
+}
+
 model {
     publishing {
         def taskList = createComponentZipTasks($.components, ['RtspServer'], zipBaseName, Zip, project, includeStandardZipFormat)
+
+        // Configure nativeLibraryJar with taskList
+        nativeLibraryJar {
+            dependsOn taskList
+            dependsOn outputSourcesJar
+            dependsOn outputJavadocJar
+            dependsOn outputJar
+            from taskList.findAll { !it.name.contains('debug') && !it.name.contains('static') }.collect { zipTree(it.archiveFile) }
+        }
+
+        addTaskToCopyAllOutputs(nativeLibraryJar)
+
         publications {
-            cpp(MavenPublication) {
-                taskList.each {
-                    artifact it
-                }
+            jni(MavenPublication) {
+                artifact nativeLibraryJar
                 artifact cppSourceZip
-                artifactId = "${baseArtifactId}-cpp"
+                artifactId = "${baseArtifactId}-jni"
                 groupId = artifactGroupId
                 version = pubVersion
             }

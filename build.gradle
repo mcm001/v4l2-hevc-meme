@@ -1,14 +1,14 @@
 import edu.wpi.first.toolchain.*
 
 plugins {
-  id 'cpp'
-  id "java"
-  id 'org.photonvision.tools.WpilibTools' version '2.3.1-photon'
-  id 'edu.wpi.first.NativeUtils' version '2026.0.1'
-  id "edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin" version "2020.2"
-  id "com.diffplug.spotless" version "8.1.0"
-  id 'edu.wpi.first.GradleJni' version '1.1.0'
-  id 'edu.wpi.first.GradleVsCode' version '2.1.0'
+    id 'cpp'
+    id "java"
+    id 'org.photonvision.tools.WpilibTools' version '2.3.1-photon'
+    id 'edu.wpi.first.NativeUtils' version '2026.0.1'
+    id "edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin" version "2020.2"
+    id "com.diffplug.spotless" version "8.1.0"
+    id 'edu.wpi.first.GradleJni' version '1.1.0'
+    id 'edu.wpi.first.GradleVsCode' version '2.1.0'
 }
 
 ext.wpilibVersion = "2026.+"
@@ -69,11 +69,6 @@ tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
 }
 
-// java {
-//     withJavadocJar()
-//     withSourcesJar()
-// }
-
 test {
     useJUnitPlatform()
     testLogging {
@@ -91,11 +86,11 @@ println("Building for $nativeName")
 
 // Set up exports properly
 nativeUtils {
-  exportsConfigs {
-    // Main library is just default empty. This will export everything
-    RtspServer {
+    exportsConfigs {
+        // Main library is just default empty. This will export everything
+        RtspServer {
+        }
     }
-  }
 }
 
 
@@ -105,31 +100,32 @@ ext.getCurrentArch = {
 
 def systemArch = getCurrentArch()
 model {
-  components {
-    RtspServer(JniNativeLibrarySpec) {
-      enableCheckTask true
-      javaCompileTasks << compileJava
+    components {
+        RtspServer(JniNativeLibrarySpec) {
+            enableCheckTask true
+            javaCompileTasks << compileJava
 
-      sources {
-        cpp {
-          source {
-            srcDirs 'src/main/native/cpp'
-            include '**/*.cpp'
-          }
-          exportedHeaders {
-            srcDirs 'src/main/native/include'
-          }
-        }
-        binaries.all {
-            linker.args "-lavformat", "-lavcodec", "-lavutil"
-        }
-      }
+            sources {
+                cpp {
+                    source {
+                        srcDirs 'src/main/native/cpp'
+                        include '**/*.cpp'
+                    }
+                    exportedHeaders {
+                        srcDirs 'src/main/native/include'
+                    }
+                }
+                binaries.all {
+                    // Actually just let these be undefined
+                    // linker.args "-lavformat", "-lavcodec", "-lavutil"
+                }
+            }
 
-        nativeUtils.useRequiredLibrary(it, 'wpinet_shared')
-        nativeUtils.useRequiredLibrary(it, 'wpiutil_shared')
-        nativeUtils.useRequiredLibrary(it, "opencv_shared")
+            nativeUtils.useRequiredLibrary(it, 'wpinet_shared')
+            nativeUtils.useRequiredLibrary(it, 'wpiutil_shared')
+            nativeUtils.useRequiredLibrary(it, "opencv_shared")
+        }
     }
-  }
 }
 
 spotless {
@@ -140,8 +136,8 @@ spotless {
         }
         toggleOffOn()
         googleJavaFormat()
-        indentWithTabs(2)
-        indentWithSpaces(4)
+        leadingSpacesToTabs(2)
+        leadingTabsToSpaces(4)
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()

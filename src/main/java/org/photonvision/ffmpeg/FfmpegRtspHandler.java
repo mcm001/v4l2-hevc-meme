@@ -5,7 +5,9 @@
 package org.photonvision.ffmpeg;
 
 public class FfmpegRtspHandler {
-  public static native boolean initialize();
+    public static native boolean initialize();
 
-  public static native boolean putFrame(String streamName, long matPtr);
+    public static native boolean putFrame(String streamName, long matPtr);
+
+    public static String[] libraryNames = new String[] {"RtspServer"};
 }

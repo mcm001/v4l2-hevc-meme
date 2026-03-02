@@ -236,7 +236,7 @@ void FfmpegRtpPipeline::init_muxer(AVCodecContext *enc_ctx) {
     throw std::runtime_error("avformat_write_header: " + averr(ret));
 
   // Print SDP for the receiver
-  {
+  if (false) {
     char sdp[4096] = {};
     av_sdp_create(&oc_, 1, sdp, sizeof(sdp));
     std::ofstream output_file("stream_sdp.txt");

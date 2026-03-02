@@ -73,14 +73,6 @@ tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
 }
 
-test {
-    useJUnitPlatform()
-    testLogging {
-        outputs.upToDateWhen {false}
-        showStandardStreams = true
-    }
-}
-
 def nativeName = wpilibTools.platformMapper.platformPath
 // ext.outputsFolder = file("$buildDir/outputs")
 
@@ -179,6 +171,18 @@ nativeConfig.dependencies.add wpilibTools.deps.wpilib("wpiutil")
 nativeConfig.dependencies.add wpilibTools.deps.wpilib("cscore")
 nativeConfig.dependencies.add wpilibTools.deps.wpilib("ntcore")
 nativeConfig.dependencies.add wpilibTools.deps.wpilibOpenCv("frc2025", openCVversion)
+
+test {
+    // dependsOn tasks.named('linkRtspServerLinuxx86-64ReleaseSharedLibrary')
+    dependsOn tasks.matching { it.name == 'linkRtspServerLinuxx86-64ReleaseSharedLibrary' }
+
+    jvmArgs "-Djava.library.path=build/libs/rtspServer/shared/linuxx86-64/release"
+    useJUnitPlatform()
+    testLogging {
+        outputs.upToDateWhen {false}
+        showStandardStreams = true
+    }
+}
 
 
 apply from: "publish.gradle"

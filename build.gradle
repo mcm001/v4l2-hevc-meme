@@ -48,8 +48,12 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.8.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
 
+    implementation 'net.java.dev.jna:jna:5.18.1'
+
     implementation wpilibTools.deps.wpilibJava("wpiutil")
     testImplementation wpilibTools.deps.wpilibJava("cscore")
+    testImplementation wpilibTools.deps.wpilibJava("cameraserver")
+    testImplementation wpilibTools.deps.wpilibJava("ntcore")
 
     def javalinVersion = "6.7.0"
     implementation "io.javalin:javalin:$javalinVersion"
@@ -75,8 +79,6 @@ test {
         outputs.upToDateWhen {false}
         showStandardStreams = true
     }
-
-    // TODO test does not depend on C++ build??
 }
 
 def nativeName = wpilibTools.platformMapper.platformPath
@@ -116,8 +118,8 @@ model {
                     }
                 }
                 binaries.all {
-                    // Actually just let these be undefined
-                    // linker.args "-lavformat", "-lavcodec", "-lavutil"
+                    //
+                    linker.args "-lavformat", "-lavcodec", "-lavutil"
                 }
             }
 
@@ -175,6 +177,7 @@ nativeTasks.addToSourceSetResources(sourceSets.test)
 nativeConfig.dependencies.add wpilibTools.deps.wpilib("wpinet")
 nativeConfig.dependencies.add wpilibTools.deps.wpilib("wpiutil")
 nativeConfig.dependencies.add wpilibTools.deps.wpilib("cscore")
+nativeConfig.dependencies.add wpilibTools.deps.wpilib("ntcore")
 nativeConfig.dependencies.add wpilibTools.deps.wpilibOpenCv("frc2025", openCVversion)
 
 

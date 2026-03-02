@@ -4,11 +4,18 @@
 
 package org.photonvision.ffmpeg;
 
+import com.sun.jna.NativeLibrary;
+import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.cscore.CameraServerJNI;
+import edu.wpi.first.cscore.OpenCvLoader;
+import edu.wpi.first.networktables.NetworkTablesJNI;
 import edu.wpi.first.util.CombinedRuntimeLoader;
+import edu.wpi.first.util.PixelFormat;
+import edu.wpi.first.util.WPIUtilJNI;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.opencv.core.Core;
-import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.core.Mat;
 
 class FfmpegJniTest {
     @Test
@@ -17,9 +24,23 @@ class FfmpegJniTest {
                 "/home/matt/Documents/GitHub/v4l2-hevc-meme/build/libs/rtspServer/shared/linuxx86-64/release/libRtspServer.so";
         assert Path.of(libPath).toFile().exists();
 
+        NetworkTablesJNI.Helper.setExtractOnStaticLoad(false);
+        CameraServerJNI.Helper.setExtractOnStaticLoad(false);
+        WPIUtilJNI.Helper.setExtractOnStaticLoad(false);
+        OpenCvLoader.Helper.setExtractOnStaticLoad(false);
+
         CombinedRuntimeLoader.loadLibraries(
-                FfmpegJniTest.class, Core.NATIVE_LIBRARY_NAME, "wpiutil", "wpinet");
+                FfmpegJniTest.class,
+                Core.NATIVE_LIBRARY_NAME,
+                "wpiutil",
+                "wpinet",
+                "wpiutiljni",
+                "ntcorejni",
+                "cscorejni");
         try {
+            NativeLibrary.getInstance("avutil");
+            NativeLibrary.getInstance("avcodec");
+            NativeLibrary.getInstance("avformat");
             System.load(
                     "/home/matt/Documents/GitHub/v4l2-hevc-meme/build/libs/rtspServer/shared/linuxx86-64/release/libRtspServer.so");
         } catch (UnsatisfiedLinkError e) {
@@ -27,15 +48,19 @@ class FfmpegJniTest {
             throw e;
         }
 
-        var mat =
-                Imgcodecs.imread("/home/matt/Downloads/left-cam_input_2025-07-02T065100975_None-0-.jpg");
-
         FfmpegRtspHandler.initialize();
 
-        for (int i = 0; i < 10; i++) {
-            // while (true) {
-            FfmpegRtspHandler.putFrame("test", mat.getNativeObjAddr());
-            Thread.sleep(1000 / 30);
+        var video = CameraServer.startAutomaticCapture();
+        video.setVideoMode(PixelFormat.kMJPEG, 1280, 720, 30);
+        var cvSink = CameraServer.getVideo();
+        var mat = new Mat();
+
+        while (true) {
+            if (cvSink.grabFrame(mat) == 0) {
+                continue;
+            } else {
+                FfmpegRtspHandler.putFrame("test", mat.getNativeObjAddr());
+            }
         }
     }
 }

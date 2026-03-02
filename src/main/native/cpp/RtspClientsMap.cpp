@@ -78,6 +78,7 @@ void StartRtspServerLoop() {
 
 bool PublishCameraFrame(const std::string &stream_name, const cv::Mat &frame) {
   // Always record for GetCameraStreamInfo
+  printf("Pushing %s to %ix%i", stream_name.c_str(), frame.rows, frame.cols);
   all_camera_streams[stream_name] = CameraStreamInfo{
       .unique_name = stream_name,
       .width = frame.size().width,

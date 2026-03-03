@@ -2,6 +2,12 @@
 
 Locks up my rubik pi. use at your own risk
 
+## Building
+
+`./gradlew libraryBuild test`
+
+## Notes
+
 ```
 pi@photonvision:~/v4l2-h265-encode$ ./build/hevc_meme out1.h265
 Source: 1920x1080

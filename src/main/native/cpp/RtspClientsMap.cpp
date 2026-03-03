@@ -78,6 +78,7 @@ void StartRtspServerLoop() {
 
 bool PublishCameraFrame(const std::string &stream_name, const cv::Mat &frame) {
   // Always record for GetCameraStreamInfo
+  // printf("Pushing %s to %ix%i", stream_name.c_str(), frame.rows, frame.cols);
   all_camera_streams[stream_name] = CameraStreamInfo{
       .unique_name = stream_name,
       .width = frame.size().width,
@@ -97,6 +98,11 @@ bool PublishCameraFrame(const std::string &stream_name, const cv::Mat &frame) {
 std::optional<CameraStreamInfo>
 GetCameraStreamInfo(const std::string &stream_name) {
   // Should always be updated by PublishCameraFrame
+  // printf("Looking up %s\n", stream_name.c_str());
+  // for (const auto &cam : all_camera_streams) {
+  //   printf("camera %s\n", cam.first.c_str());
+  // }
+
   auto it = all_camera_streams.find(stream_name);
   if (it == all_camera_streams.end()) {
     return std::nullopt;

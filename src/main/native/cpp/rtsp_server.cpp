@@ -61,7 +61,10 @@ static std::string extractCameraName(const std::string &rtspRequest) {
 
   std::smatch match;
   if (std::regex_search(rtspRequest, match, pattern)) {
-    return match[1].str();
+    std::string ret = match[1].str();
+    std::transform(ret.begin(), ret.end(), ret.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return ret;
   }
   return {};
 }

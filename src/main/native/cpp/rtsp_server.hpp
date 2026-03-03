@@ -29,12 +29,21 @@ public:
 
   void Start();
 
+  static std::string to_lowercase(std::string_view sv) {
+    std::string s;
+    s.reserve(sv.length()); 
+    for (unsigned char c : sv) {
+      s += static_cast<char>(std::tolower(c));
+    }
+    return s;
+  }
+
   /**
    * Called by Java code, unsycnronized with all libuv EventLoop land code.
    * TODO I need a mutex on m_ffmpegStreamer at the very least
    */
   bool OfferFrame(std::string_view stream_name, const cv::Mat &frame) {
-    if (m_ffmpegStreamer && stream_name == m_streamPath) {
+    if (m_ffmpegStreamer && to_lowercase(stream_name) == m_streamPath) {
       m_ffmpegStreamer->handle_frame(frame);
       return true;
     }
@@ -64,6 +73,7 @@ private:
 
   // RTSP URL path, e.g. "camera1". This is what we use to match against the
   // stream
+  // Forced to all lower case by setup handler
   std::string m_streamPath;
 
   std::string m_destIp;

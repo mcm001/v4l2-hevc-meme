@@ -54,19 +54,39 @@ static std::string DUMMY_SDP =
     "a=control:trackID=0\r\n"; // needed by some clients to SETUP the right
                                // track
 
-static std::string extractCameraName(const std::string &rtspRequest) {
-  static const std::regex pattern(
-      R"(^\w+\s+rtsp://[^/]+/([^/?/\s]+)(?:[/\s?][^\r\n]*)?\s+RTSP/\d+\.\d+)",
-      std::regex::ECMAScript);
+struct RtspRequestInfo {
+  std::string cameraName;
+  int bitrate;
+};
 
+static RtspRequestInfo extractRtspInfo(const std::string &rtspRequest) {
+  static const std::regex pattern(
+      R"(^\w+\s+rtsp://[^/]+/([^/?/\s]+)([^?\s]*)(?:\?([^\s]*))?\s+RTSP/\d+\.\d+)",
+      std::regex::ECMAScript);
+  static const std::regex bitratePattern(R"((?:^|&)bitrate=(\d+)(?:&|$))");
+
+  RtspRequestInfo info{
+      "", 2000000 // sane default
+  };
   std::smatch match;
-  if (std::regex_search(rtspRequest, match, pattern)) {
-    std::string ret = match[1].str();
-    std::transform(ret.begin(), ret.end(), ret.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    return ret;
+
+  if (!std::regex_search(rtspRequest, match, pattern))
+    return info;
+
+  info.cameraName = match[1].str();
+  std::transform(info.cameraName.begin(), info.cameraName.end(),
+                 info.cameraName.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  if (match[3].matched) {
+    std::smatch bitrateMatch;
+    std::string queryString = match[3].str();
+    if (std::regex_search(queryString, bitrateMatch, bitratePattern)) {
+      info.bitrate = std::stoi(bitrateMatch[1].str());
+    }
   }
-  return {};
+
+  return info;
 }
 
 // From HttpServerConnection.cpp
@@ -162,9 +182,11 @@ void RtspServerConnectionHandler::HandleSetup(std::string_view request,
   }
 
   // Time to make our stream!
+  printf("Starting with bitrate %i\n", m_bitrate);
   m_ffmpegStreamer.emplace(info->width, info->height,
                            std::string("rtp://") + m_destIp + ":" +
-                               std::to_string(m_destPort));
+                               std::to_string(m_destPort),
+                           m_bitrate);
 
   SendResponse(200, "OK", cseq,
                {{"Session", m_session}, {"Transport", transport}});
@@ -229,7 +251,9 @@ bool RtspServerConnectionHandler::ExtractSetupDest(
   // Extract path from the first line, which is something like "SETUP
   // rtsp://127.0.0.1:5801/lifecam/ RTSP/1.0". May or may not have a trailing /
   {
-    m_streamPath = extractCameraName(std::string{request});
+    auto info = extractRtspInfo(std::string{request});
+    m_streamPath = info.cameraName;
+    m_bitrate = info.bitrate;
   }
 
   return true;

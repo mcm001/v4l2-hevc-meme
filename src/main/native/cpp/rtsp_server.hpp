@@ -31,7 +31,7 @@ public:
 
   static std::string to_lowercase(std::string_view sv) {
     std::string s;
-    s.reserve(sv.length()); 
+    s.reserve(sv.length());
     for (unsigned char c : sv) {
       s += static_cast<char>(std::tolower(c));
     }
@@ -75,6 +75,7 @@ private:
   // stream
   // Forced to all lower case by setup handler
   std::string m_streamPath;
+  int m_bitrate{2000000}; // sane default
 
   std::string m_destIp;
   int m_destPort;

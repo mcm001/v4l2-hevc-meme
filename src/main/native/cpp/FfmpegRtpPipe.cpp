@@ -22,10 +22,10 @@ static std::string averr(int ret) {
   return {buf};
 }
 
-FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
+FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url,
+                                     int bitrateBps)
     : width_(width), height_(height), url_(url) {
 
-  const int BITRATE = 2'000'000; // bps
   std::string encoder_name;
   AVPixelFormat pix_fmt;
 
@@ -52,7 +52,7 @@ FfmpegRtpPipeline::FfmpegRtpPipeline(int width, int height, std::string url)
   enc_ctx_->time_base = {1, 90000};
   enc_ctx_->framerate = {30, 1}; // 30 FPS
   enc_ctx_->pix_fmt = pix_fmt;
-  enc_ctx_->bit_rate = BITRATE;
+  enc_ctx_->bit_rate = bitrateBps;
   enc_ctx_->gop_size = 30; // Keyframe every 1 second at 30fps
 
   // Try to reduce internal buffering

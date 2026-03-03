@@ -43,7 +43,7 @@ private:
   cv::Mat scratch;
 
 public:
-  FfmpegRtpPipeline(int width, int height, std::string url);
+  FfmpegRtpPipeline(int width, int height, std::string url, int bitrateBps);
   ~FfmpegRtpPipeline();
   FfmpegRtpPipeline(const FfmpegRtpPipeline &) = delete;
   FfmpegRtpPipeline &operator=(const FfmpegRtpPipeline &) = delete;

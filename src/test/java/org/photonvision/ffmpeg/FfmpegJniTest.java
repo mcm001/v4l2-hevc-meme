@@ -31,7 +31,7 @@ import org.opencv.imgproc.Imgproc;
 
 class FfmpegJniTest {
     @Test
-    @Disabled
+    // @Disabled
     public void testMeme() throws Exception {
         var libPath =
                 "/home/matt/Documents/GitHub/v4l2-hevc-meme/build/libs/rtspServer/shared/linuxx86-64/release/libRtspServer.so";

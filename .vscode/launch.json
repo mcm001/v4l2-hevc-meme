@@ -15,7 +15,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/hevc_meme",
+            "program": "${workspaceFolder}/build_cmake/hevc_meme",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

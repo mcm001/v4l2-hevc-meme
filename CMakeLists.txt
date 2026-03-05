@@ -145,13 +145,13 @@ pkg_check_modules(
 
 add_executable(
     hevc_meme
-    src/main.cpp
-    src/FfmpegRtpPipe.cpp
-    src/rtsp_server.cpp
-    src/RtspClientsMap.cpp
+    main.cpp
+    src/main/native/cpp/FfmpegRtpPipe.cpp
+    src/main/native/cpp/rtsp_server.cpp
+    src/main/native/cpp/RtspClientsMap.cpp
 )
 
-target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH})
+target_include_directories(hevc_meme PUBLIC ${OPENCV_INCLUDE_PATH} src/main/native/cpp)
 # hack :(
 target_include_directories(
     yuv

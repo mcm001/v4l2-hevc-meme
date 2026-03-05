@@ -79,3 +79,7 @@ Encoder hevc_nvenc [NVIDIA NVENC hevc encoder]:
     Supported hardware devices: cuda cuda
     Supported pixel formats: yuv420p nv12 p010le yuv444p p016le yuv444p16le bgr0 rgb0 cuda
 ```
+
+## MediaMTX
+
+Run with `docker run --rm -it --network host -v $(pwd)/mediamtx.yml:/mediamtx.yml bluenviron/mediamtx:latest`

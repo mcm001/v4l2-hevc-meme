@@ -1,0 +1,6 @@
+paths:
+  "~^.*$":
+    # source: "rtsp://localhost:5801/$MTX_PATH"
+    # sourceOnDemand: true
+    runOnDemand: "ffmpeg -i rtsp://localhost:5801/$MTX_PATH -c copy -f rtsp rtsp://localhost:8554/$MTX_PATH"
+    runOnDemandRestart: yes

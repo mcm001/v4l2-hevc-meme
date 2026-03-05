@@ -63,7 +63,7 @@ static RtspRequestInfo extractRtspInfo(const std::string &rtspRequest) {
   static const std::regex pattern(
       R"(^\w+\s+rtsp://[^/]+/([^/?/\s]+)([^?\s]*)(?:\?([^\s]*))?\s+RTSP/\d+\.\d+)",
       std::regex::ECMAScript);
-  static const std::regex bitratePattern(R"((?:^|&)bitrate=(\d+)(?:&|$))");
+  static const std::regex bitratePattern(R"((?:^|&)bitrate=(\d+)(?:[&/]|$))");
 
   RtspRequestInfo info{
       "", 2000000 // sane default
